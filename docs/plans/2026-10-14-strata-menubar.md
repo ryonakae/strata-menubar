@@ -64,6 +64,10 @@
 
 Review base commit: `fe85445`（Initial commit）。
 
+### Review log
+
+- Unit A（Task 1〜3、`fe85445..5c27cb0`）：独立レビュー（read-only agent）。blocking/high 1件を採用：`AppDelegate` の `.waitForStop` 経路が `waitForIdle()` 後に所有状態を再確認せず終了を許可していた（停止失敗で所有が残る場合、`restart` が新サーバーを起動した直後の場合）。修正：待機後に `quitRequirement` を再評価するループへ変更。decision required 4件（`refresh` による `.failed` の上書き、子プロセスへの環境変数の全継承、アイドル監視での非Strata占有の表示、`.external` が陳腐化する最大10秒間の Start 不可）は実装側で採否を決めず、ユーザー確認待ち。medium/low は completion report に記載。
+
 - [x] **ビルド可能なメニューバーアプリの土台**：`StrataMenubar.xcodeproj`、`StrataMenubar/App/` を作成し、MenuBarExtra・設定ウィンドウ・終了フロー・共有schemeを用意する。
   - 実装：`PBXFileSystemSynchronizedRootGroup` でフォルダ同期するプロジェクト（objectVersion 77）、`LSUIElement` はビルド設定で生成。終了フローは `QuitRequirement(state:ownsProcess:)` で判定し、`AppDelegate` が確認・保留・キャンセルを扱う。テストはSwift Testing。
   - 検証：Final Validationのbuild/testコマンドで成功（QuitRequirementTests 4件）。Swiftマクロのplugin serverは内側で `sandbox-exec` を使うため、エージェントのSafehouseサンドボックス内では `malformed response` で失敗する。ビルド・テストはHerdrペイン（サンドボックス外）に委譲して実行した。
@@ -77,21 +81,23 @@ Review base commit: `fe85445`（Initial commit）。
 - [x] **メニューと設定の接続**：`StrataMenubar/Views/` とApp層に状態別表示・操作可否・設定の未反映表示・「停止して反映」・チャットとログを開く操作を実装する。現在動くサーバーのURLは未反映設定ではなく、実際の起動設定から作る。
   - 実装：メニューは状態文、未反映表示、Start / Stop（`canStart` / `canStop` で可否）、未反映時のみ "Stop and Apply Saved Settings"、停止中・外部・エラー時の "Check Port Again"、Open Chat（`RunningInfo.settings.port` または `ExternalInfo.port` から生成）、サーバー／エンジンログを開く、ログフォルダ、Settings、Quit。設定画面は導入状況の確認、入力検証の表示、キャッシュがStrata全体の上限ではなく固定値は自動縮小されない旨の注記、稼働中の実設定と保存済み設定の差分表示、Save と "Save, Stop and Apply"、Pi側 `models.json` の手動調整の注記。
   - 検証：build/testコマンドで成功（49件、警告なし）。画面の実機確認はTask 5で行う。
-- [ ] **実機検証と利用手順**：`README.md` にビルド、アプリ起動、Strataの事前導入、設定変更、停止、ログ確認、ポート／コンテキスト変更時のPi側調整を記載する。以下の検証を実施し、結果と残る制約をこの計画へ記録する。
+- [x] **実機検証と利用手順**：`README.md` にビルド、アプリ起動、Strataの事前導入、設定変更、停止、ログ確認、ポート／コンテキスト変更時のPi側調整を記載する。以下の検証を実施し、結果と残る制約をこの計画へ記録する。
+  - 実装：README を記載。実Strataに対する検証は、アプリと同じ部品（`ServerManager` + `StrataLaunchPlanner` + `PosixProcessLauncher` + `URLSessionHealthProbe`）を実モデルに対して走らせる opt-in 統合テスト `RealStrataIntegrationTests` で行った（`.build/real-strata.json` がある時だけ実行。テストホストに環境変数が渡らないためファイルで opt-in）。
+  - GUI：`cua-driver` でアプリをバックグラウンド起動（`launch_app`、Dock非表示・ウィンドウなしを確認）したが、ステータス項目はウィンドウとして列挙されず `invoke_menu` は `window_id` 必須、`run_script` は権限拒否のため、メニュー・設定画面・終了確認ダイアログの操作は未検証。ユーザー確認へ引き継ぐ。起動したアプリ（旧ビルド）は検証用に残置。
 
 ## Final Validation
 
 新規に作成するschemeを次のコマンドで検証できるようにする。現時点ではプロジェクト未作成であり、これらは未実行。
 
-- [ ] `xcodebuild -project StrataMenubar.xcodeproj -scheme StrataMenubar -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO build` → アカウント設定なしでローカル `.app` をビルドできる。
-- [ ] 同じ指定の末尾を `test` として単体テストを実行 → 設定の保存・検証、元JSONを変更しないコピー生成、無関係なキーの保持、コンテキスト引数の更新、ローカル限定接続、空白を含むパスが正しい。
-- [ ] 自動ライフサイクルテスト → 起動連打は1プロセス、loaded前は起動中、遅延healthが次の起動を汚さない、外部サービスへシグナルを送らない、起動失敗・異常終了・タイムアウトを停止成功と誤認しない。
-- [ ] テスト用親子プロセスで稼働後停止・起動途中停止・設定反映再起動・終了キャンセル・アプリ正常終了を検証 → 所有する子孫が残らず、無関係なプロセスには影響しない。停止が失敗するfixtureでは再起動を抑止し、エラー表示する。
-- [ ] 実機でアプリを起動 → Dockに常時表示せずメニューバーと設定画面を操作でき、起動・停止待ち中もUIが応答する。GUI操作には適用される `cua-driver` 等のスキルに従う。画面検証を実施できなければ未検証と明記し、ユーザー確認へ引き継ぐ。
-- [ ] 実Strataを5 GB / 8K / 8080で一度起動 → `/health` のmodel・loaded・max_contextを確認し、ブラウザで短い質問が応答する。変更前後のメモリプレッシャー・スワップとエンジンログを記録する。過去のスワップ累計を今回の増加と誤認しない。
-- [ ] 設定保存のみでは稼働プロセスが変化せず、「停止して反映」で正常停止後に新しい値で1プロセスだけ起動する。代表的な設定変更を実測し、元JSONとモデルデータに変更がないことを確認する。
-- [ ] Piから既存のStrataモデルへ短い質問を送り応答を確認する。Piのグローバル設定やデフォルトは変更しない。既存8Kコンテキストで通常の全ツール構成まで保証したとは報告しない。
-- [ ] 実サーバー停止と稼働中のアプリ終了 → サーバー・Metalエンジンが終了し、ポートが解放される。ログだけでなくプロセスの終了も確認する。
+- [x] `xcodebuild -project StrataMenubar.xcodeproj -scheme StrataMenubar -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO build` → アカウント設定なしでローカル `.app` をビルドできる。→ BUILD SUCCEEDED（警告なし）。
+- [x] 同じ指定の末尾を `test` として単体テストを実行 → 設定の保存・検証、元JSONを変更しないコピー生成、無関係なキーの保持、コンテキスト引数の更新、ローカル限定接続、空白を含むパスが正しい。→ 50件成功（うち opt-in の実Strata統合テスト1件は通常実行ではスキップ）。
+- [x] 自動ライフサイクルテスト → 起動連打は1プロセス、loaded前は起動中、遅延healthが次の起動を汚さない、外部サービスへシグナルを送らない、起動失敗・異常終了・タイムアウトを停止成功と誤認しない。→ `ServerManagerTests` 17件で確認。
+- [x] テスト用親子プロセスで稼働後停止・起動途中停止・設定反映再起動・終了キャンセル・アプリ正常終了を検証 → 所有する子孫が残らず、無関係なプロセスには影響しない。停止が失敗するfixtureでは再起動を抑止し、エラー表示する。→ `PosixProcessLauncherTests` 6件（孫 `sleep` を持つ `/bin/sh` fixture、TERM無視→KILL、無関係プロセス温存）と fake の停止失敗テストで確認。終了確認・キャンセルは `QuitRequirement` の判定を単体テストで確認し、ダイアログ操作自体は未検証（GUI未検証に含む）。
+- [ ] 実機でアプリを起動 → Dockに常時表示せずメニューバーと設定画面を操作でき、起動・停止待ち中もUIが応答する。GUI操作には適用される `cua-driver` 等のスキルに従う。画面検証を実施できなければ未検証と明記し、ユーザー確認へ引き継ぐ。→ **未検証（ユーザー確認へ引き継ぎ）**。`cua-driver launch_app` で起動し Dock 非表示（`LSUIElement`）とウィンドウなしは確認したが、ステータス項目のメニュー・設定画面・UI応答性は操作手段がなく確認できていない。
+- [x] 実Strataを5 GB / 8K / 8080で一度起動 → `/health` のmodel・loaded・max_contextを確認し、ブラウザで短い質問が応答する。変更前後のメモリプレッシャー・スワップとエンジンログを記録する。過去のスワップ累計を今回の増加と誤認しない。→ 統合テストで起動（約3秒で `loaded: true`、`max_context: 8192`、`model: qwen3.8-flash-next-q2_0`）。API 経由と `agent-browser` でのチャット画面の双方で「pong」を確認（30トークン、12.0 tok/s）。メモリ：起動前 free 84% / swap used 3,744 MB / pageouts 244,118 → 読み込み＋1応答後 free 44% / swap used 3,736 MB → 停止後 free 75% / swap used 3,720 MB / pageouts 244,473（増加約355ページ＝約5.6 MB、今回の増加分としては無視できる範囲）。エンジンログ：`expert arena 5.00 GB`、`1.36 GB of the arena hold a prompt's buffers`、`resident footprint after the fill: the process holds 13.0 GB (6.9 GB resident), planned 13.4 GB`。python 84663 / engine 84667 が同一プロセスグループ（pgid 84663）であることを `ps` で確認。
+- [x] 設定保存のみでは稼働プロセスが変化せず、「停止して反映」で正常停止後に新しい値で1プロセスだけ起動する。代表的な設定変更を実測し、元JSONとモデルデータに変更がないことを確認する。→ 統合テストで PID 不変を確認後、コンテキスト 4096 で `restart`：旧 PID 消滅、新 PID 89358 / engine 89359 の各1プロセス、`/health` `max_context: 4096`。`strata-q2_0.json`・`run-q2_0.sh` の SHA-256 と、モデル `.gguf`・`dense.bin` の mtime/size が前後で一致。
+- [x] Piから既存のStrataモデルへ短い質問を送り応答を確認する。Piのグローバル設定やデフォルトは変更しない。既存8Kコンテキストで通常の全ツール構成まで保証したとは報告しない。→ `PI_CODING_AGENT_DIR=~/Dev/local/.pi pi -p --no-tools --system-prompt "You are a terse assistant." --provider strata --model qwen3.8-flash-next-q2_0` で「pong」（プロンプト1,176トークン）。既定のコーディング用システムプロンプト＋組み込みツールではプロンプトだけで 8,326 トークンとなり、サーバーが 400（context exceeded）を返した。全ツール構成は 8K では動作しない。Pi の設定は変更せず、セッションは scratchpad に保存。
+- [x] 実サーバー停止と稼働中のアプリ終了 → サーバー・Metalエンジンが終了し、ポートが解放される。ログだけでなくプロセスの終了も確認する。→ 統合テストの `stop()` 後、`pgrep` で server.py / strata が存在せず、`lsof` で 8080 が空き、`server.log` に `[strata] stopping ... stopped` が2回（再起動時と停止時）。稼働中のアプリ終了（メニューの Quit → 確認ダイアログ）は GUI 未検証。
 - [ ] `git diff --check`、差分とREADMEのコマンド・参照パスを確認 → モデル・実行ログ・生成設定・ビルド成果物・秘密が追跡対象に混入せず、合意範囲外の変更がない。
 
 実機適用・GUI検証は通常のユーザー環境で行う。エージェントのsandboxで操作が拒否された場合、権限を緩和せず必要な操作をユーザーへ引き継ぐ。実モデルの再ダウンロードや検証目的のシステム設定変更は行わない。
