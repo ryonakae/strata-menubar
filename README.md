@@ -1,21 +1,22 @@
 # strata-menubar
 
 A small macOS menu bar app that starts and stops a locally installed
-[Strata](https://github.com/Niko1221/Strata) server running Qwen3.8-Flash-Next
-Q2_0, and lets you change its memory-related settings. It replaces the terminal
-pane you would otherwise keep open for `run-q2_0.sh`; once the server is up,
-clients such as [Pi](https://github.com/badlogic/pi-mono) use it as before.
+[Strata](https://github.com/Niko1221/Strata) server running Qwen3.8-Flash-Next,
+lets you pick which installed model to run, and changes its memory-related
+settings. It replaces the terminal pane you would otherwise keep open for
+`run-<model>.sh`; once the server is up, clients such as
+[Pi](https://github.com/badlogic/pi-mono) use it as before.
 
 The app does not install, update or edit Strata or its model files. It needs a
-finished Strata setup and runs only the Q2_0 configuration.
+finished Strata setup and starts whichever `strata-<model>.json` setup wrote.
 
 ## Requirements
 
 - macOS 15 or newer on Apple Silicon
 - Xcode 16 or newer to build (Xcode 27 was used)
-- A working Strata checkout with the Q2_0 model set up by `setup.sh`, by
+- A working Strata checkout with at least one model set up by `setup.sh`, by
   default at `~/Dev/local/Strata`, containing `.venv/bin/python`,
-  `serve/server.py` and `strata-q2_0.json`
+  `serve/server.py` and a `strata-<model>.json` (for example `strata-q2_0.json`)
 
 ## Build
 
@@ -55,6 +56,11 @@ The menu shows one of these states:
 
 Actions:
 
+- **Model**, **Expert cache** and **Context** are submenus of the saved
+  settings. Picking a value saves it at once; it applies at the next start. A
+  running server keeps the values it was started with until you choose **Stop
+  and Apply Saved Settings**. The Model submenu lists the `strata-<model>.json`
+  files in the Strata directory by their model name.
 - **Start Server** starts `serve/server.py` with the saved settings, bound to
   `127.0.0.1` only. The server and the Metal engine it spawns run in their own
   process group owned by the app.
@@ -77,42 +83,65 @@ Actions:
 
 ## Settings
 
-Open **Settings…** from the menu (or ⌘,).
+Open **Settings…** from the menu (or ⌘,). Every control saves as soon as you
+use it; there is no Save button.
 
 | Setting | Default | Notes |
 | --- | --- | --- |
 | Strata directory | `~/Dev/local/Strata` | Must contain a finished setup. The window lists what is missing. |
-| Expert cache (GB) | 5 | `STRATA_METAL_ARENA_GB`, in decimal GB. |
-| Context (tokens) | 8192 | `--max-context` for the engine. |
-| Port | 8080 | Must be between 1024 and 65535. |
+| Model | `q2_0` | One of the `strata-<model>.json` files in the Strata directory. |
+| Expert cache (GB) | 5 | `STRATA_METAL_ARENA_GB`, in decimal GB. Slider from 1 GB to the Mac's physical memory in 1 GB steps. |
+| Context (tokens) | 8192 | `--max-context` for the engine. Slider over 1024, 2048, 4096, 8192, 16384 and 32768. |
+| Port | 8080 | Must be between 1024 and 65535; an invalid entry keeps the previous value. |
 
 The expert cache is only the arena the engine keeps the most-used experts in.
 It is not a limit on Strata's total memory: with a 5 GB cache the engine's
-footprint was about 10.6 GB on an M-series Mac with 32 GiB. A fixed value is
-never shrunk automatically when memory runs short, and "about 16 GB overall" is
-an operating goal, not something the app enforces. Values that have not been
-tried here are flagged as warnings but allowed: caches under 3 GB or over
-12 GB, and contexts over 8192 or under 2048.
+footprint was about 13 GB after start on an M-series Mac with 32 GiB. A fixed
+value is never shrunk automatically when memory runs short, and "about 16 GB
+overall" is an operating goal, not something the app enforces. Any value in
+the slider's range is accepted; the app only warns, with the reason, for caches
+under 2 GB (the engine needs about 1.36 GB of the arena for a prompt's buffers
+and failed at about 0.8 GB) or over half of the Mac's memory, and for contexts
+over 8192 (untested here, more memory) or under 2048 (Pi's maxTokens does not
+fit).
 
 Settings are saved in the app's user defaults and apply at the next start.
-While a server is running, **Save** keeps it as it is and **Save, Stop and
-Apply** restarts it with the new values. The window shows the settings the
-running server was started with next to the saved ones. The app never
-restarts the server on its own.
+While a server is running, the window shows the settings it was started with
+next to the saved ones and offers **Stop and Apply**. The app never restarts
+the server on its own.
 
-At each start the app reads the current `strata-q2_0.json` from the Strata
-directory and writes a copy with only the managed keys changed
+At each start the app reads the selected model's `strata-<model>.json` from the
+Strata directory and writes a copy with only the managed keys changed
 (`--max-context`, `STRATA_METAL_ARENA_GB`, `STRATA_METAL_STREAM=1` when the
-base has no such key, the engine log path and the port)
-to `~/Library/Application Support/StrataMenubar/strata-q2_0.run.json`. The
-original file, `run-q2_0.sh` and the model files are never modified.
+base has no such key, the engine log path and the port) to
+`~/Library/Application Support/StrataMenubar/strata-<model>.run.json`. The
+original file, `run-<model>.sh` and the model files are never modified.
+
+### Installing another model
+
+The window's "Install another model" section lists the packs Strata's Mac
+documentation describes (Q2_0, IQ3_XXS, IQ3_S, UD-Q4_K_XL, UD-Q5_K_XL,
+UD-Q6_K_XL) with their download size, the file the GPU maps, the memory they
+need and the recommended RAM, and marks the ones already installed. Pick one
+and press **Copy Command** to get
+
+```sh
+cd "/path/to/Strata" && ./setup.sh --setup --model IQ3_XXS --no-start
+```
+
+Run it in a terminal yourself: setup downloads and prepares the model and
+writes `strata-<model>.json`; `--no-start` keeps it from starting a server of
+its own. The new model then appears in the Model menu. The app never runs
+setup.
 
 ### Pi
 
 Pi reads this server through its `strata` provider entry in
 `~/Dev/local/.pi/models.json` (`http://127.0.0.1:8080/v1`, `contextWindow`
-8192, `maxTokens` 2048). After changing the port or the context here, edit that
-file by hand; the app does not touch Pi's configuration.
+8192, `maxTokens` 2048, model id `qwen3.8-flash-next-q2_0`). After changing
+the port, the context or the model here, edit that file by hand; the model id
+must equal the server's model name (what `/v1/models` reports). The app does
+not touch Pi's configuration.
 
 With the 8192 context, Pi's default coding system prompt plus its built-in
 tools did not fit: the server answered 400 because the prompt alone was 8,326
@@ -129,7 +158,8 @@ If your Pi configuration lives outside the default `~/.pi/agent`, point
 
 ## Limitations
 
-- Q2_0 only; image input and the MTP draft stay off, as in the base config.
+- Only models that Strata's setup has already installed; image input, the MTP
+  draft and every other engine option stay as the model's base config has them.
 - No login item, launchd service, LAN access, authentication, signing or
   notarisation.
 - A server left over from an app crash is shown as "External Strata" and is not

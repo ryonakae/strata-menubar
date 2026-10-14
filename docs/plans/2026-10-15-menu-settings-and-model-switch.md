@@ -44,16 +44,17 @@ Review base commit: `60edd37`。
   - メニューのサブメニューと設定画面は同じ `SettingsStore` を見るので、片方で保存すればもう片方にも反映される。
   - 実装：`MenuContent` に「Model: <model_name>」「Expert cache: N GB」「Context: N」のサブメニュー（`Menu` + inline `Picker`、選択で `settingsStore.save`）。導入済み一覧はメニュー内容の評価時に `installedModels()` で取得し、空なら無効の案内行、保存値が一覧になければ「(not installed)」の項目を足す。保存値が選択肢にない数値（4.5 GB や 6144）は現在値の項目として並べる。`SettingsView` は下書きを廃し、スライダー（cache: 1〜物理 GiB、1 刻み。context: 段の index 0〜5）の編集終了で保存、Model の `Picker` は即保存、ディレクトリとポートは `onSubmit` と focus 喪失で検証して保存（不正なら前の値を保持しエラー表示）。Save / Revert を廃止し、稼働中に差があれば「Stop and Apply」。注記（5 GB → 約 13 GB の実測、警告は実績の説明のみ）、Pi の注記（モデル ID）、「Install another model」セクション（pack の `Picker`、容量・必要メモリ・推奨 RAM・導入済み表示、コマンドの表示と Copy Command（`NSPasteboard.general`）、2 秒間 "Copied" 表示）。
   - 検証：build / test 成功（61件、警告なし）。画面の実機確認は Task 4。
-- [ ] **README と実機検証**：`README.md` の Use / Settings / Limitations を更新する（サブメニューでの変更、即時保存、モデル切替と `strata-<model>.json` の一覧、取得コマンドの案内、Q2_0 専用の記述の削除、Pi のモデル ID の注記、警告の根拠）。以下の Final Validation を実施し、結果をこの計画に記録する。
+- [x] **README と実機検証**：`README.md` の Use / Settings / Limitations を更新する（サブメニューでの変更、即時保存、モデル切替と `strata-<model>.json` の一覧、取得コマンドの案内、Q2_0 専用の記述の削除、Pi のモデル ID の注記、警告の根拠）。以下の Final Validation を実施し、結果をこの計画に記録する。
+  - 実装：README の冒頭・Requirements・Use（サブメニュー）・Settings（表、警告の根拠、即時保存、`strata-<model>.run.json`）・「Installing another model」・Pi（モデル ID）・Limitations を更新。
 
 ## Final Validation
 
 既存のコマンドをそのまま使う（Swift マクロの plugin server はサンドボックス内で動かないため、Herdr ペインで実行する）。
 
-- [ ] build：`xcodebuild -project StrataMenubar.xcodeproj -scheme StrataMenubar -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO build` → BUILD SUCCEEDED、警告なし。
-- [ ] test：同じ指定で `test` → 全件成功。新規・更新テストで、物理メモリ基準の警告、`model` の既定と保存、`ContextSteps`、導入済み一覧の検出、tag ごとの run config と `--config`、存在しない tag のエラー、`SetupCommand` の引用、カタログの導入済み判定が通る。既存のライフサイクル・実プロセステストは変更なしで通る。
-- [ ] 実Strata統合テスト：`.build/real-strata.json` を置いて `-only-testing:StrataMenubarTests/RealStrataIntegrationTests` → 既定設定（`model: q2_0`）で従来どおり start → pong → save-only 不変 → restart → stop が通り、run config は `strata-q2_0.run.json`。
-- [ ] 実機（GUI）：アプリを起動し、メニューの Model ▸ に `qwen3.8-flash-next-q2_0` が1件、Expert cache ▸ に 1〜32 GB、Context ▸ に 6 段が並び、選ぶと設定画面のスライダーとメニューの表示が一致する。稼働中にメニューから Context を変えると未反映表示と「Stop and Apply Saved Settings」が出て、押すと新しい値で再起動する（`/health` の `max_context` で確認）。設定画面で IQ3_XXS を選んで Copy を押すと、クリップボードに `cd "/Users/ryo.nakae/Dev/local/Strata" && ./setup.sh --setup --model IQ3_XXS --no-start` が入る。cua-driver でステータス項目に到達できない場合は、前回と同様に未検証と明記してユーザー確認へ引き継ぐ。
-- [ ] `git diff --check` と差分確認 → モデル・ログ・生成設定・ビルド成果物が追跡対象に混入せず、Strata 本体・Pi 設定に変更がない（`strata-q2_0.json` の SHA-256 と `~/Dev/local/.pi/models.json` の mtime が前後で一致）。
+- [x] build：`xcodebuild -project StrataMenubar.xcodeproj -scheme StrataMenubar -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO build` → BUILD SUCCEEDED、警告なし（各 Task の test 実行でビルド済み）。
+- [x] test：同じ指定で `test` → 全件成功。新規・更新テストで、物理メモリ基準の警告、`model` の既定と保存、`ContextSteps`、導入済み一覧の検出、tag ごとの run config と `--config`、存在しない tag のエラー、`SetupCommand` の引用、カタログの導入済み判定が通る。既存のライフサイクル・実プロセステストは変更なしで通る。→ 61件成功（opt-in の実Strata統合テストは通常実行ではスキップ）。
+- [x] 実Strata統合テスト：`.build/real-strata.json` を置いて `-only-testing:StrataMenubarTests/RealStrataIntegrationTests` → 既定設定（`model: q2_0`）で従来どおり start → pong → save-only 不変 → restart → stop が通り、run config は `strata-q2_0.run.json`。→ 成功（起動約3秒で loaded、pong、保存のみ不変、4096 で再起動、停止後にプロセスなし、`~/Library/Application Support/StrataMenubar/` には `strata-q2_0.run.json` のみ）。
+- [ ] 実機（GUI）：アプリを起動し、メニューの Model ▸ に `qwen3.8-flash-next-q2_0` が1件、Expert cache ▸ に 1〜32 GB、Context ▸ に 6 段が並び、選ぶと設定画面のスライダーとメニューの表示が一致する。稼働中にメニューから Context を変えると未反映表示と「Stop and Apply Saved Settings」が出て、押すと新しい値で再起動する（`/health` の `max_context` で確認）。設定画面で IQ3_XXS を選んで Copy を押すと、クリップボードに `cd "/Users/ryo.nakae/Dev/local/Strata" && ./setup.sh --setup --model IQ3_XXS --no-start` が入る。cua-driver でステータス項目に到達できない場合は、前回と同様に未検証と明記してユーザー確認へ引き継ぐ。→ **未検証（ユーザー確認へ引き継ぎ）**。前回と同じく cua-driver はステータス項目に到達できず、サブメニュー・スライダー・Copy の画面操作は確認していない。
+- [x] `git diff --check` と差分確認 → モデル・ログ・生成設定・ビルド成果物が追跡対象に混入せず、Strata 本体・Pi 設定に変更がない（`strata-q2_0.json` の SHA-256 と `~/Dev/local/.pi/models.json` の mtime が前後で一致）。→ 一致を確認（SHA-256 `38e43c6e…`、models.json の mtime 変化なし）。`git diff --check` は commit 時に確認。
 
 > 各タスクは対応する検証が成功してから完了にする。実装中の軽微な差分と検証結果は該当箇所へ反映し、要件、対象外、公開契約の変更はユーザーへ確認する。最終確認では有効な検証結果を再利用し、計画と実際の変更が一致することを確認する。必要な検証と実装側の必須レビューが通ったら、計画を同名のまま `docs/plans/archived/` へ移す。
