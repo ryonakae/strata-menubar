@@ -19,10 +19,30 @@ struct StartingInfo: Equatable, Sendable {
 
 struct RunningInfo: Equatable, Sendable {
     var pid: pid_t
-    var port: Int
+    /// The settings the server was started with; the saved settings may already differ.
+    var settings: StrataSettings
     var model: String?
     var maxContext: Int?
     var since: Date
+    var health: HealthStatus
+
+    var port: Int { settings.port }
+}
+
+/// The last health check of a running server. A failing check is shown, never acted on: the process is still ours.
+enum HealthStatus: Equatable, Sendable {
+    case ok
+    case notLoaded
+    case unreachable
+    case other(String)
+
+    init(_ result: HealthProbeResult) {
+        switch result {
+        case .strata(let health): self = health.loaded ? .ok : .notLoaded
+        case .unreachable: self = .unreachable
+        case .occupied(let detail): self = .other(detail)
+        }
+    }
 }
 
 struct ExternalInfo: Equatable, Sendable {

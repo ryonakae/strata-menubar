@@ -5,7 +5,7 @@ extension ServerState {
         switch self {
         case .stopped: "stop.circle"
         case .starting, .stopping: "clock"
-        case .running: "checkmark.circle.fill"
+        case .running(let info): info.health == .ok ? "checkmark.circle.fill" : "exclamationmark.circle"
         case .external: "eye.circle"
         case .failed: "exclamationmark.triangle.fill"
         }
@@ -19,12 +19,24 @@ extension ServerState {
             "Starting on port \(info.port) (PID \(info.pid))…"
         case .running(let info):
             "Running on port \(info.port): \(info.model ?? "unknown model"), context \(info.maxContext.map(String.init) ?? "?")"
+                + info.health.suffix
         case .stopping:
             "Stopping…"
         case .external(let info):
             "External Strata on port \(info.port): \(info.model ?? "unknown model")\(info.loaded ? "" : " (loading)")"
         case .failed(let message):
             "Error: \(message)"
+        }
+    }
+}
+
+private extension HealthStatus {
+    var suffix: String {
+        switch self {
+        case .ok: ""
+        case .notLoaded: " — health check: model not loaded"
+        case .unreachable: " — health check: no answer"
+        case .other(let detail): " — health check: \(detail)"
         }
     }
 }

@@ -12,7 +12,7 @@ struct QuitRequirementTests {
     }
 
     @Test func runningAndStartingAskToStopFirst() {
-        let running = ServerState.running(RunningInfo(pid: 42, port: 8080, model: nil, maxContext: nil, since: now))
+        let running = ServerState.running(RunningInfo(pid: 42, settings: .default, model: nil, maxContext: nil, since: now, health: .ok))
         guard case .confirmStop = QuitRequirement(state: running, ownsProcess: true) else {
             Issue.record("running must ask before quitting")
             return

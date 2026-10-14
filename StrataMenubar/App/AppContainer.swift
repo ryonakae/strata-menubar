@@ -5,9 +5,18 @@ import Foundation
 final class AppContainer {
     static let shared = AppContainer()
 
+    let paths = AppPaths.standard
+    let settingsStore: SettingsStore
     let serverManager: ServerManager
 
     private init() {
-        serverManager = ServerManager()
+        settingsStore = SettingsStore()
+        serverManager = ServerManager(
+            launcher: PosixProcessLauncher(),
+            probe: URLSessionHealthProbe(),
+            planner: StrataLaunchPlanner(paths: paths)
+        )
+        let settingsStore = settingsStore
+        serverManager.startMonitoring { settingsStore.settings.port }
     }
 }
