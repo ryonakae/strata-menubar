@@ -7,6 +7,7 @@ import Observation
 final class SettingsStore {
     private enum Key {
         static let strataDirectory = "strataDirectory"
+        static let model = "model"
         static let expertCacheGB = "expertCacheGB"
         static let maxContext = "maxContext"
         static let port = "port"
@@ -22,6 +23,7 @@ final class SettingsStore {
 
     func save(_ newSettings: StrataSettings) {
         defaults.set(newSettings.strataDirectory, forKey: Key.strataDirectory)
+        defaults.set(newSettings.model, forKey: Key.model)
         defaults.set(newSettings.expertCacheGB, forKey: Key.expertCacheGB)
         defaults.set(newSettings.maxContext, forKey: Key.maxContext)
         defaults.set(newSettings.port, forKey: Key.port)
@@ -32,6 +34,9 @@ final class SettingsStore {
         var settings = StrataSettings.default
         if let directory = defaults.string(forKey: Key.strataDirectory) {
             settings.strataDirectory = directory
+        }
+        if let model = defaults.string(forKey: Key.model) {
+            settings.model = model
         }
         if defaults.object(forKey: Key.expertCacheGB) != nil {
             settings.expertCacheGB = defaults.double(forKey: Key.expertCacheGB)
