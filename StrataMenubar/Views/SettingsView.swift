@@ -1,94 +1,195 @@
+import AppKit
 import SwiftUI
 
+/// Every control saves as soon as it is used; the saved values apply at the next start. A running server keeps the
+/// values it was started with until "Stop and Apply".
 struct SettingsView: View {
     let settingsStore: SettingsStore
     let serverManager: ServerManager
 
-    @State private var draft: StrataSettings
+    private let memory = MemoryBudget.current
+
+    @State private var directoryText: String
+    @State private var portText: String
+    @State private var cacheSlider: Double
+    @State private var contextSlider: Double
+    @State private var fieldErrors: [String] = []
     @State private var installationProblems: [String]?
+    @State private var packToInstall: String = StrataModelCatalog.packs[0].name
+    @State private var copied = false
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case directory
+        case port
+    }
 
     init(settingsStore: SettingsStore, serverManager: ServerManager) {
         self.settingsStore = settingsStore
         self.serverManager = serverManager
-        _draft = State(initialValue: settingsStore.settings)
+        let settings = settingsStore.settings
+        _directoryText = State(initialValue: settings.strataDirectory)
+        _portText = State(initialValue: String(settings.port))
+        _cacheSlider = State(initialValue: settings.expertCacheGB)
+        _contextSlider = State(initialValue: Double(ContextSteps.nearestIndex(to: settings.maxContext)))
     }
 
-    private var issues: [SettingsIssue] { draft.validate() }
-    private var hasErrors: Bool { issues.contains { $0.severity == .error } }
-    private var isDirty: Bool { draft != settingsStore.settings }
+    private var settings: StrataSettings { settingsStore.settings }
     private var running: RunningInfo? { serverManager.state.runningInfo }
+    private var installed: [InstalledModel] { StrataInstallation(root: settings.strataDirectoryURL).installedModels() }
 
     var body: some View {
         Form {
-            Section("Strata installation") {
-                TextField("Strata directory", text: $draft.strataDirectory)
-                    .onSubmit(checkInstallation)
-                HStack(alignment: .top) {
-                    installationStatus
-                    Spacer()
-                    Button("Check") { checkInstallation() }
-                }
-                Text("The directory must contain Strata's `.venv`, `serve/server.py` and `strata-q2_0.json` from a finished setup. "
-                    + "This app only runs the Q2_0 model and never installs, updates or edits anything there.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Memory and context") {
-                TextField("Expert cache (GB)", value: $draft.expertCacheGB, format: .number)
-                TextField("Context (tokens)", value: $draft.maxContext, format: .number.grouping(.never))
-                TextField("Port", value: $draft.port, format: .number.grouping(.never))
-                ForEach(issues) { issue in
-                    Label(issue.message, systemImage: issue.severity == .error ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
-                        .foregroundStyle(issue.severity == .error ? Color.red : Color.orange)
-                        .font(.callout)
-                }
-                Text("The expert cache (STRATA_METAL_ARENA_GB) is only the arena for the most-used experts, not a limit on Strata's "
-                    + "total memory: with a 5 GB cache the engine's footprint was about 10.6 GB. A fixed value is never shrunk "
-                    + "automatically when memory runs short. \"About 16 GB overall\" is an operating goal, not a limit this app enforces.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Running server") {
-                if let running {
-                    LabeledContent("Started with", value: Self.describe(running.settings))
-                    if running.settings != settingsStore.settings {
-                        Text("The saved settings differ. They apply at the next start, or now with \"Save, Stop and Apply\".")
-                            .foregroundStyle(.orange)
-                    }
-                } else {
-                    Text("Not running. Saved settings apply at the next start.")
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section {
-                HStack {
-                    Button("Save") { save() }
-                        .disabled(hasErrors || !isDirty)
-                    if let running, running.settings != draft {
-                        Button("Save, Stop and Apply") {
-                            save()
-                            let settings = draft
-                            Task { await serverManager.restart(settings: settings) }
-                        }
-                        .disabled(hasErrors)
-                    }
-                    Spacer()
-                    Button("Revert") { draft = settingsStore.settings }
-                        .disabled(!isDirty)
-                }
-                Text("Pi reads this server at http://127.0.0.1:\(String(draft.port))/v1 with contextWindow 8192 in "
-                    + "~/Dev/local/.pi/models.json. After changing the port or the context, edit that file by hand; this app never touches it.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            installationSection
+            modelSection
+            memorySection
+            runningSection
+            installSection
         }
         .formStyle(.grouped)
-        .frame(width: 520)
+        .frame(width: 560)
         .onAppear(perform: checkInstallation)
+        .onChange(of: settingsStore.settings) { _, newValue in
+            cacheSlider = newValue.expertCacheGB
+            contextSlider = Double(ContextSteps.nearestIndex(to: newValue.maxContext))
+            checkInstallation()
+        }
+        .onChange(of: focusedField) { previous, _ in
+            if previous == .directory { commitDirectory() }
+            if previous == .port { commitPort() }
+        }
     }
+
+    // MARK: - Sections
+
+    private var installationSection: some View {
+        Section("Strata installation") {
+            TextField("Strata directory", text: $directoryText)
+                .focused($focusedField, equals: .directory)
+                .onSubmit(commitDirectory)
+            HStack(alignment: .top) {
+                installationStatus
+                Spacer()
+                Button("Check") { checkInstallation() }
+            }
+            Text("The directory must contain Strata's `.venv`, `serve/server.py` and a `strata-<model>.json` from a finished setup. "
+                + "This app never installs, updates or edits anything there.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var modelSection: some View {
+        Section("Model") {
+            if installed.isEmpty {
+                Text("No strata-<model>.json found in the Strata directory.")
+                    .foregroundStyle(.secondary)
+            } else {
+                Picker("Model", selection: binding(\.model)) {
+                    ForEach(installed) { model in
+                        Text("\(model.modelName) (\(model.configURL.lastPathComponent))").tag(model.tag)
+                    }
+                    if !installed.contains(where: { $0.tag == settings.model }) {
+                        Text("\(settings.model) (not installed)").tag(settings.model)
+                    }
+                }
+            }
+        }
+    }
+
+    private var memorySection: some View {
+        Section("Memory and context") {
+            Slider(value: $cacheSlider, in: Double(memory.cacheRange.lowerBound)...Double(memory.cacheRange.upperBound), step: 1) {
+                Text("Expert cache: \(RunConfig.gigabytes(cacheSlider)) GB")
+            } minimumValueLabel: {
+                Text("1")
+            } maximumValueLabel: {
+                Text("\(memory.cacheRange.upperBound)")
+            } onEditingChanged: { editing in
+                if !editing { save(\.expertCacheGB, cacheSlider.rounded()) }
+            }
+            Slider(value: $contextSlider, in: 0...Double(ContextSteps.values.count - 1), step: 1) {
+                Text("Context: \(ContextSteps.values[Int(contextSlider)])")
+            } minimumValueLabel: {
+                Text(String(ContextSteps.values.first!))
+            } maximumValueLabel: {
+                Text(String(ContextSteps.values.last!))
+            } onEditingChanged: { editing in
+                if !editing { save(\.maxContext, ContextSteps.values[Int(contextSlider)]) }
+            }
+            TextField("Port", text: $portText)
+                .focused($focusedField, equals: .port)
+                .onSubmit(commitPort)
+            ForEach(settings.validate(memory: memory)) { issue in
+                issueLabel(issue.message, isError: issue.severity == .error)
+            }
+            ForEach(fieldErrors, id: \.self) { message in
+                issueLabel(message, isError: true)
+            }
+            Text("The expert cache (STRATA_METAL_ARENA_GB) is only the arena for the most-used experts, not a limit on Strata's "
+                + "total memory: on this Mac a 5 GB cache gave the engine a footprint of about 13 GB at start. A fixed value is "
+                + "never shrunk automatically when memory runs short. \"About 16 GB overall\" is an operating goal, not a limit "
+                + "this app enforces. Values are saved as you set them; warnings only say what has not worked here.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var runningSection: some View {
+        Section("Running server") {
+            if let running {
+                LabeledContent("Started with", value: Self.describe(running.settings))
+                if running.settings != settings {
+                    HStack {
+                        Text("The saved settings differ. They apply at the next start, or now:")
+                            .foregroundStyle(.orange)
+                        Spacer()
+                        Button("Stop and Apply") {
+                            let saved = settings
+                            Task { await serverManager.restart(settings: saved) }
+                        }
+                        .disabled(settings.hasErrors)
+                    }
+                }
+            } else {
+                Text("Not running. Saved settings apply at the next start.")
+                    .foregroundStyle(.secondary)
+            }
+            Text("Pi reads this server at http://127.0.0.1:\(String(settings.port))/v1 with contextWindow 8192 in "
+                + "~/Dev/local/.pi/models.json, and the model id there must equal the server's model name (what /v1/models "
+                + "reports). After changing the port, the context or the model, edit that file by hand; this app never touches it.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var installSection: some View {
+        let pack = StrataModelCatalog.packs.first { $0.name == packToInstall } ?? StrataModelCatalog.packs[0]
+        let command = SetupCommand.make(strataDirectory: settings.strataDirectory, model: pack.name)
+        return Section("Install another model") {
+            Picker("Pack", selection: $packToInstall) {
+                ForEach(StrataModelCatalog.packs) { pack in
+                    Text(pack.name + (pack.isInstalled(among: installed) ? " (installed)" : "")).tag(pack.name)
+                }
+            }
+            Text(Self.describe(pack))
+                .font(.callout)
+            HStack(alignment: .top) {
+                Text(command)
+                    .font(.system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+                Spacer()
+                Button(copied ? "Copied" : "Copy Command") { copy(command) }
+            }
+            Text("Run it in a terminal; setup downloads the model (\(RunConfig.gigabytes(pack.downloadGB)) GB), prepares it and writes "
+                + "strata-\(pack.tag).json. --no-start keeps setup from starting its own server, so you can start the model from "
+                + "this app afterwards. Sizes are from Strata's docs for a Mac; this Mac has \(memory.physicalMemoryGiB) GiB.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Pieces
 
     @ViewBuilder
     private var installationStatus: some View {
@@ -99,11 +200,9 @@ struct SettingsView: View {
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(installationProblems, id: \.self) { problem in
-                        Label(problem, systemImage: "xmark.octagon.fill")
-                            .foregroundStyle(.red)
+                        issueLabel(problem, isError: true)
                     }
                 }
-                .font(.callout)
             }
         } else {
             Text("Not checked yet")
@@ -111,16 +210,77 @@ struct SettingsView: View {
         }
     }
 
-    private func checkInstallation() {
-        installationProblems = StrataInstallation(root: draft.strataDirectoryURL).check(model: draft.model)
+    private func issueLabel(_ message: String, isError: Bool) -> some View {
+        Label(message, systemImage: isError ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+            .foregroundStyle(isError ? Color.red : Color.orange)
+            .font(.callout)
     }
 
-    private func save() {
-        settingsStore.save(draft)
-        checkInstallation()
+    // MARK: - Saving
+
+    private func binding<Value>(_ keyPath: WritableKeyPath<StrataSettings, Value>) -> Binding<Value> {
+        Binding(
+            get: { settingsStore.settings[keyPath: keyPath] },
+            set: { save(keyPath, $0) }
+        )
+    }
+
+    private func save<Value>(_ keyPath: WritableKeyPath<StrataSettings, Value>, _ value: Value) {
+        var changed = settingsStore.settings
+        changed[keyPath: keyPath] = value
+        settingsStore.save(changed)
+    }
+
+    private func commitDirectory() {
+        let trimmed = directoryText.trimmingCharacters(in: .whitespacesAndNewlines)
+        fieldErrors.removeAll { $0.hasPrefix("The Strata directory") }
+        guard !trimmed.isEmpty else {
+            fieldErrors.append("The Strata directory is empty; the previous value is kept.")
+            return
+        }
+        if trimmed != settings.strataDirectory {
+            save(\.strataDirectory, trimmed)
+        }
+    }
+
+    private func commitPort() {
+        fieldErrors.removeAll { $0.hasPrefix("The port") }
+        guard let port = Int(portText.trimmingCharacters(in: .whitespaces)), (1024...65535).contains(port) else {
+            fieldErrors.append("The port must be a number between 1024 and 65535; the previous value (\(settings.port)) is kept.")
+            return
+        }
+        if port != settings.port {
+            save(\.port, port)
+        }
+    }
+
+    private func checkInstallation() {
+        installationProblems = StrataInstallation(root: settings.strataDirectoryURL).check(model: settings.model)
+    }
+
+    private func copy(_ command: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(command, forType: .string)
+        copied = true
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            copied = false
+        }
     }
 
     private static func describe(_ settings: StrataSettings) -> String {
-        "cache \(RunConfig.gigabytes(settings.expertCacheGB)) GB, context \(settings.maxContext), port \(settings.port)"
+        "model \(settings.model), cache \(RunConfig.gigabytes(settings.expertCacheGB)) GB, context \(settings.maxContext), port \(settings.port)"
+    }
+
+    private static func describe(_ pack: ModelPack) -> String {
+        var parts = [pack.note, "GPU maps \(RunConfig.gigabytes(pack.mappedFileGB)) GB"]
+        if let needs = pack.needsAboutGB {
+            parts.append("needs about \(RunConfig.gigabytes(needs)) GB")
+        } else {
+            parts.append("streams from the SSD")
+        }
+        parts.append("recommended from \(pack.recommendedFromGB) GB")
+        return parts.joined(separator: " · ")
     }
 }

@@ -39,9 +39,11 @@ Review base commit: `60edd37`。
   - 既存の `strata-q2_0.run.json` は `strata-q2_0.run.json` のまま（tag が `q2_0` なので名前は変わらない）。
   - 実装：`StrataInstallation.installedModels()`（`strata-*.json` を列挙、`.run.json` は除外、読めない JSON は tag を名前にして残す、tag 順）、`check(model:)`（tag の JSON がなければ導入済み一覧と `setup.sh --setup --model` の案内を含む 1 件）、`configURL(for:)`。`AppPaths.runConfig(for:)`。`StrataLaunchPlanner` は `settings.model` の JSON をベースに `strata-<tag>.run.json` を書いて `--config` に渡す。`StrataModelCatalog.packs`（6 pack、docs/MAC.md と setup.py の数値）、`ModelPack.tag`（小文字化、setup.py の `strata-{tag.lower()}.json` と一致）、`SetupCommand.make`（`~` 展開、`"` と `\` をエスケープ）。
   - 検証：testコマンドで61件成功（新規: 一覧の列挙と並び順、空ディレクトリ、別モデルの起動計画、未導入 tag のエラー文、ファイル欠損、カタログの順序と導入判定、コマンドの引用）。
-- [ ] **メニューと設定画面**：`StrataMenubar/Views/MenuContent.swift`（Model / Expert cache / Context のサブメニュー、現在の保存値の表示、既存項目は維持）、`StrataMenubar/Views/SettingsView.swift`（スライダー、モデルのポップアップ、即時保存、Save / Revert の廃止、「Stop and Apply」、実測の注記、取得案内のポップアップ・コマンド表示・Copy ボタン、Pi の注記の追記）を変更する。`StrataMenubarApp.swift` は必要なら `AppContainer` の受け渡しだけ変える。
+- [x] **メニューと設定画面**：`StrataMenubar/Views/MenuContent.swift`（Model / Expert cache / Context のサブメニュー、現在の保存値の表示、既存項目は維持）、`StrataMenubar/Views/SettingsView.swift`（スライダー、モデルのポップアップ、即時保存、Save / Revert の廃止、「Stop and Apply」、実測の注記、取得案内のポップアップ・コマンド表示・Copy ボタン、Pi の注記の追記）を変更する。`StrataMenubarApp.swift` は必要なら `AppContainer` の受け渡しだけ変える。
   - 導入済み一覧が空のときは、Model サブメニューに「No strata-<model>.json in <dir>」の無効項目を出し、Start は導入確認のエラーで止まる（既存経路）。
   - メニューのサブメニューと設定画面は同じ `SettingsStore` を見るので、片方で保存すればもう片方にも反映される。
+  - 実装：`MenuContent` に「Model: <model_name>」「Expert cache: N GB」「Context: N」のサブメニュー（`Menu` + inline `Picker`、選択で `settingsStore.save`）。導入済み一覧はメニュー内容の評価時に `installedModels()` で取得し、空なら無効の案内行、保存値が一覧になければ「(not installed)」の項目を足す。保存値が選択肢にない数値（4.5 GB や 6144）は現在値の項目として並べる。`SettingsView` は下書きを廃し、スライダー（cache: 1〜物理 GiB、1 刻み。context: 段の index 0〜5）の編集終了で保存、Model の `Picker` は即保存、ディレクトリとポートは `onSubmit` と focus 喪失で検証して保存（不正なら前の値を保持しエラー表示）。Save / Revert を廃止し、稼働中に差があれば「Stop and Apply」。注記（5 GB → 約 13 GB の実測、警告は実績の説明のみ）、Pi の注記（モデル ID）、「Install another model」セクション（pack の `Picker`、容量・必要メモリ・推奨 RAM・導入済み表示、コマンドの表示と Copy Command（`NSPasteboard.general`）、2 秒間 "Copied" 表示）。
+  - 検証：build / test 成功（61件、警告なし）。画面の実機確認は Task 4。
 - [ ] **README と実機検証**：`README.md` の Use / Settings / Limitations を更新する（サブメニューでの変更、即時保存、モデル切替と `strata-<model>.json` の一覧、取得コマンドの案内、Q2_0 専用の記述の削除、Pi のモデル ID の注記、警告の根拠）。以下の Final Validation を実施し、結果をこの計画に記録する。
 
 ## Final Validation

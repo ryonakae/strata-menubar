@@ -8,10 +8,12 @@ struct MenuContent: View {
     @Environment(\.openSettings) private var openSettings
 
     private var state: ServerState { serverManager.state }
+    private var settings: StrataSettings { settingsStore.settings }
+    private let memory = MemoryBudget.current
 
     private var unappliedSettings: Bool {
         guard let info = state.runningInfo else { return false }
-        return info.settings != settingsStore.settings
+        return info.settings != settings
     }
 
     private var canRefresh: Bool {
@@ -36,8 +38,12 @@ struct MenuContent: View {
             Text("Saved settings differ from the running server")
         }
         Divider()
+        modelMenu
+        cacheMenu
+        contextMenu
+        Divider()
         Button("Start Server") {
-            Task { await serverManager.start(settings: settingsStore.settings) }
+            Task { await serverManager.start(settings: settings) }
         }
         .disabled(!serverManager.canStart)
         Button("Stop Server") {
@@ -46,12 +52,12 @@ struct MenuContent: View {
         .disabled(!serverManager.canStop)
         if unappliedSettings {
             Button("Stop and Apply Saved Settings") {
-                Task { await serverManager.restart(settings: settingsStore.settings) }
+                Task { await serverManager.restart(settings: settings) }
             }
         }
         if canRefresh {
             Button("Check Port Again") {
-                Task { await serverManager.refresh(port: settingsStore.settings.port) }
+                Task { await serverManager.refresh(port: settings.port) }
             }
         }
         Divider()
@@ -79,6 +85,71 @@ struct MenuContent: View {
             NSApp.terminate(nil)
         }
         .keyboardShortcut("q")
+    }
+
+    // MARK: - Saved-value submenus (a choice is saved at once; a running server keeps its own values)
+
+    private var modelMenu: some View {
+        let installed = StrataInstallation(root: settings.strataDirectoryURL).installedModels()
+        let current = installed.first { $0.tag == settings.model }
+        return Menu("Model: \(current?.modelName ?? settings.model)") {
+            if installed.isEmpty {
+                Text("No strata-<model>.json in \(settings.strataDirectory)")
+            } else {
+                Picker("Model", selection: binding(\.model)) {
+                    ForEach(installed) { model in
+                        Text(model.modelName).tag(model.tag)
+                    }
+                    if current == nil {
+                        Text("\(settings.model) (not installed)").tag(settings.model)
+                    }
+                }
+                .pickerStyle(.inline)
+            }
+        }
+    }
+
+    private var cacheMenu: some View {
+        var choices = memory.cacheRange.map(Double.init)
+        if !choices.contains(settings.expertCacheGB) {
+            choices.append(settings.expertCacheGB)
+            choices.sort()
+        }
+        return Menu("Expert cache: \(RunConfig.gigabytes(settings.expertCacheGB)) GB") {
+            Picker("Expert cache", selection: binding(\.expertCacheGB)) {
+                ForEach(choices, id: \.self) { value in
+                    Text("\(RunConfig.gigabytes(value)) GB").tag(value)
+                }
+            }
+            .pickerStyle(.inline)
+        }
+    }
+
+    private var contextMenu: some View {
+        var choices = ContextSteps.values
+        if !choices.contains(settings.maxContext) {
+            choices.append(settings.maxContext)
+            choices.sort()
+        }
+        return Menu("Context: \(settings.maxContext)") {
+            Picker("Context", selection: binding(\.maxContext)) {
+                ForEach(choices, id: \.self) { value in
+                    Text(String(value)).tag(value)
+                }
+            }
+            .pickerStyle(.inline)
+        }
+    }
+
+    private func binding<Value>(_ keyPath: WritableKeyPath<StrataSettings, Value>) -> Binding<Value> {
+        Binding(
+            get: { settingsStore.settings[keyPath: keyPath] },
+            set: { newValue in
+                var changed = settingsStore.settings
+                changed[keyPath: keyPath] = newValue
+                settingsStore.save(changed)
+            }
+        )
     }
 
     private func open(log: URL) {
