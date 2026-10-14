@@ -70,7 +70,10 @@ struct SettingsView: View {
             HStack(alignment: .top) {
                 installationStatus
                 Spacer()
-                Button("Check") { checkInstallation() }
+                Button("Check") {
+                    commitDirectory()
+                    checkInstallation()
+                }
             }
             Text("The directory must contain Strata's `.venv`, `serve/server.py` and a `strata-<model>.json` from a finished setup. "
                 + "This app never installs, updates or edits anything there.")

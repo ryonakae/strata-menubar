@@ -31,6 +31,10 @@ dig log: [docs/dig/2026-10-15-popover-sliders-model.md](../dig/2026-10-15-popove
 
 Review base commit: `60edd37`。
 
+### Review log
+
+- 全体（Task 1〜4、`60edd37..815ecca`）：独立レビュー（read-only agent）。blocking/high 1件を採用：未保存時の既定モデルで「`q2_0` がなければ導入済み一覧の先頭」が未実装（`SettingsStore` が無条件に `q2_0`）。修正：`model` キーがないときは Strata ディレクトリの導入済み一覧を見て、`q2_0` があるか一覧が空なら `q2_0`、なければ先頭の tag。あわせて medium/low のうち、Check ボタンが入力中のパスを確認しない退行、README の文言（テキスト欄の保存契機、「Stop and Apply」は差異があるときだけ）、Plan に挙げたテストの不足（`model_name` 欠損 JSON、`strata-q2_0.run.json` の名前の固定、`\` のエスケープ、奇数 GiB の切り上げ）を修理として採用。decision required 2件（入力未確定のディレクトリ／ポートのままウィンドウを閉じた場合の扱い、導入確認が失敗している状態での「Stop and Apply」の可否）はユーザー確認待ち。残りの medium/low は completion report に記載。
+
 - [x] **設定モデルの拡張**：`StrataMenubar/Settings/StrataSettings.swift`（`model` 追加、`validate(memory:)`、`MemoryBudget`、`ContextSteps`）、`StrataMenubar/Settings/SettingsStore.swift`（`model` の保存と既定）を変更する。`StrataMenubarTests/StrataSettingsTests.swift`・`SettingsStoreTests.swift` を新しい閾値（物理メモリ 32 GiB 固定で 17 GB 以上と 2 GB 未満が警告、16 GB は警告なし、8192 超・2048 未満の警告は維持）、`model` の既定と往復、`ContextSteps` の index↔値の写像（段にない値は最も近い段）に合わせて更新する。
   - `RunningInfo` の既存テスト（`QuitRequirementTests`、`ServerManagerTests`）は `StrataSettings.default` を使っているので、`model` のメンバーワイズ追加で壊れないことを確認する。
   - 実装：`StrataSettings.model`（既定 `q2_0`、空はエラー）、`validate(memory:)`（2 GB 未満と物理メモリの半分超で警告、文言に GiB と実測を記載）、`MemoryBudget(physicalMemoryBytes:)`（`cacheRange`、`cacheWarningAboveGB = ceil(GiB/2)`）、`ContextSteps.values` と `nearestIndex(to:)`（同距離は小さい段）。`SettingsStore` は `model` キーを保存し、無ければ `q2_0`。

@@ -37,6 +37,8 @@ final class SettingsStore {
         }
         if let model = defaults.string(forKey: Key.model) {
             settings.model = model
+        } else {
+            settings.model = defaultModel(in: settings.strataDirectoryURL)
         }
         if defaults.object(forKey: Key.expertCacheGB) != nil {
             settings.expertCacheGB = defaults.double(forKey: Key.expertCacheGB)
@@ -48,5 +50,15 @@ final class SettingsStore {
             settings.port = defaults.integer(forKey: Key.port)
         }
         return settings
+    }
+
+    /// Without a saved choice: q2_0 when it is installed (or nothing is), otherwise the first installed model.
+    private static func defaultModel(in root: URL) -> String {
+        let installed = StrataInstallation(root: root).installedModels()
+        let preferred = StrataSettings.default.model
+        if installed.isEmpty || installed.contains(where: { $0.tag == preferred }) {
+            return preferred
+        }
+        return installed[0].tag
     }
 }

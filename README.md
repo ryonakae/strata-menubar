@@ -83,8 +83,9 @@ Actions:
 
 ## Settings
 
-Open **Settings…** from the menu (or ⌘,). Every control saves as soon as you
-use it; there is no Save button.
+Open **Settings…** from the menu (or ⌘,). Sliders and pickers save as soon as
+you use them, text fields when you press Return or leave the field; there is
+no Save button.
 
 | Setting | Default | Notes |
 | --- | --- | --- |
@@ -107,8 +108,8 @@ fit).
 
 Settings are saved in the app's user defaults and apply at the next start.
 While a server is running, the window shows the settings it was started with
-next to the saved ones and offers **Stop and Apply**. The app never restarts
-the server on its own.
+and, when the saved ones differ, offers **Stop and Apply**. The app never
+restarts the server on its own.
 
 At each start the app reads the selected model's `strata-<model>.json` from the
 Strata directory and writes a copy with only the managed keys changed

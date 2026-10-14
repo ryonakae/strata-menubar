@@ -31,6 +31,7 @@ struct StrataLaunchPlannerTests {
         let plan = try StrataLaunchPlanner(paths: paths).makePlan(settings: settings)
 
         #expect(plan.executable.path(percentEncoded: false) == install.python.path(percentEncoded: false))
+        #expect(paths.runConfig(for: "q2_0").lastPathComponent == "strata-q2_0.run.json")
         #expect(plan.arguments == [
             install.server.path(percentEncoded: false),
             "--engine", "strata",

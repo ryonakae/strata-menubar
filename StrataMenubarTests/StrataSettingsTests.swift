@@ -31,8 +31,10 @@ struct StrataSettingsTests {
         #expect(memory.physicalMemoryGiB == 32)
         #expect(memory.cacheRange == 1...32)
         #expect(memory.cacheWarningAboveGB == 16)
-        let odd = MemoryBudget(physicalMemoryBytes: 24 << 30)
-        #expect(odd.cacheWarningAboveGB == 12)
+        let even = MemoryBudget(physicalMemoryBytes: 24 << 30)
+        #expect(even.cacheWarningAboveGB == 12)
+        let odd = MemoryBudget(physicalMemoryBytes: 3 << 30)
+        #expect(odd.cacheWarningAboveGB == 2)
         #expect(MemoryBudget(physicalMemoryBytes: 1).cacheRange == 1...1)
     }
 

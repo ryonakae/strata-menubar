@@ -41,6 +41,20 @@ struct StrataInstallationTests {
         #expect(missing[0].contains("iq3_xxs, q2_0"))
     }
 
+    @Test func aConfigWithoutAModelNameIsListedByTagAndFailsTheCheck() throws {
+        let install = try TestInstallation.make()
+        defer { install.remove() }
+        var contents = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: install.baseConfig)) as? [String: Any])
+        contents.removeValue(forKey: "model_name")
+        try JSONSerialization.data(withJSONObject: contents).write(to: install.configURL(for: "noname"))
+        let installation = StrataInstallation(root: install.root)
+
+        #expect(installation.installedModels().first { $0.tag == "noname" }?.modelName == "noname")
+        let problems = installation.check(model: "noname")
+        #expect(problems.count == 1)
+        #expect(problems[0].contains("model_name"))
+    }
+
     @Test func reportsAConfigWhoseFilesAreGone() throws {
         let install = try TestInstallation.make()
         defer { install.remove() }
