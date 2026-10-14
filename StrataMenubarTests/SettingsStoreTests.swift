@@ -5,12 +5,18 @@ import Testing
 @MainActor
 struct SettingsStoreTests {
     @Test func startsFromTheDefaultsAndRoundTripsThroughUserDefaults() throws {
+        let install = try TestInstallation.make()
+        defer { install.remove() }
         let suite = "StrataMenubarTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
+        // The directory is pinned so that the test never looks at the developer's real Strata checkout.
+        defaults.set(install.root.path(percentEncoded: false), forKey: "strataDirectory")
+        var expected = StrataSettings.default
+        expected.strataDirectory = install.root.path(percentEncoded: false)
 
         let store = SettingsStore(defaults: defaults)
-        #expect(store.settings == .default)
+        #expect(store.settings == expected)
 
         var changed = StrataSettings.default
         changed.strataDirectory = "/tmp/Strata テスト dir"

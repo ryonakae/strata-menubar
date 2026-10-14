@@ -151,7 +151,7 @@ struct SettingsView: View {
                             let saved = settings
                             Task { await serverManager.restart(settings: saved) }
                         }
-                        .disabled(settings.hasErrors)
+                        .disabled(settings.hasErrors || !(installationProblems ?? []).isEmpty)
                     }
                 }
             } else {

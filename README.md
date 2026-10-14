@@ -85,12 +85,13 @@ Actions:
 
 Open **Settings…** from the menu (or ⌘,). Sliders and pickers save as soon as
 you use them, text fields when you press Return or leave the field; there is
-no Save button.
+no Save button, and an entry you never confirmed is dropped when the window
+closes.
 
 | Setting | Default | Notes |
 | --- | --- | --- |
 | Strata directory | `~/Dev/local/Strata` | Must contain a finished setup. The window lists what is missing. |
-| Model | `q2_0` | One of the `strata-<model>.json` files in the Strata directory. |
+| Model | `q2_0`, else the first installed | One of the `strata-<model>.json` files in the Strata directory. |
 | Expert cache (GB) | 5 | `STRATA_METAL_ARENA_GB`, in decimal GB. Slider from 1 GB to the Mac's physical memory in 1 GB steps. |
 | Context (tokens) | 8192 | `--max-context` for the engine. Slider over 1024, 2048, 4096, 8192, 16384 and 32768. |
 | Port | 8080 | Must be between 1024 and 65535; an invalid entry keeps the previous value. |
@@ -108,8 +109,10 @@ fit).
 
 Settings are saved in the app's user defaults and apply at the next start.
 While a server is running, the window shows the settings it was started with
-and, when the saved ones differ, offers **Stop and Apply**. The app never
-restarts the server on its own.
+and, when the saved ones differ, offers **Stop and Apply**. That button (and
+the menu's) is disabled while the selected model's installation check fails,
+so a working server is never stopped for a launch that cannot succeed. The app
+never restarts the server on its own.
 
 At each start the app reads the selected model's `strata-<model>.json` from the
 Strata directory and writes a copy with only the managed keys changed

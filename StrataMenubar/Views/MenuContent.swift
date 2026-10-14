@@ -51,8 +51,14 @@ struct MenuContent: View {
         }
         .disabled(!serverManager.canStop)
         if unappliedSettings {
+            // A launch that is bound to fail must not take a working server down with it.
+            let problems = StrataInstallation(root: settings.strataDirectoryURL).check(model: settings.model)
             Button("Stop and Apply Saved Settings") {
                 Task { await serverManager.restart(settings: settings) }
+            }
+            .disabled(!problems.isEmpty)
+            if let problem = problems.first {
+                Text("Cannot apply: \(problem)")
             }
         }
         if canRefresh {
