@@ -74,7 +74,9 @@ Review base commit: `fe85445`（Initial commit）。
   - 実装：`PosixProcessLauncher` は `posix_spawn` + `POSIX_SPAWN_SETPGROUP`（新しいプロセスグループ）、stdinは `/dev/null`、stdout/stderrは `server.log` へ追記、`CLOEXEC_DEFAULT` でfdを継承しない。終了は `DispatchSource` のprocess exitで `waitpid` し、所有グループの生存は `kill(-pgid, 0)` で判定する。`ServerManager` は start/stop/restart/予期せぬ終了/起動期限超過を1本の直列キューで処理し、起動ごとのgenerationで古いhealth応答・終了通知を無視する。稼働中の停止はサーバーPIDへSIGTERM→最大90秒待機→残るグループにSIGTERM（20秒）→SIGKILL（10秒）。起動途中の停止・異常終了・期限超過はグループにだけシグナルを送る。停止失敗時は `failed` のまま所有を保持し、再起動を抑止する。稼働後のhealth不調は `RunningInfo.health` に表示するだけで再起動しない。
   - 検証：testコマンドで49件成功。fake launcher/probeによる状態テスト（連打で1プロセス、loaded前は起動中、遅延health応答が次の起動を汚さない、外部Strataにシグナルを送らない、競合・導入不備・spawn失敗、起動途中の終了、期限超過、SIGTERM→グループTERM→KILLの順序、停止失敗時の所有保持、設定反映再起動、health不調の表示、停止完了待ち）と、`/bin/sh` fixture（孫 `sleep` を持つ）での実プロセステスト（独立グループ、グループ信号で子孫が消える、TERM無視→KILL、引数・cwd・ログ転送、無関係プロセスに影響しない、起動途中の停止）。
   - 修正記録：`waitForIdle()` が完了済みTaskの `value` を待つだけで `operation = nil` の継続が走らずビジーループした（`sample` で確認）。`enqueue` がTask内部で自分をクリアする形に変更。`withTaskGroup` によるタイムアウト競争は、終了しないプロセスの待ちを抱えて戻れないため、`exitIfFinished()` のポーリングに置換。
-- [ ] **メニューと設定の接続**：`StrataMenubar/Views/` とApp層に状態別表示・操作可否・設定の未反映表示・「停止して反映」・チャットとログを開く操作を実装する。現在動くサーバーのURLは未反映設定ではなく、実際の起動設定から作る。
+- [x] **メニューと設定の接続**：`StrataMenubar/Views/` とApp層に状態別表示・操作可否・設定の未反映表示・「停止して反映」・チャットとログを開く操作を実装する。現在動くサーバーのURLは未反映設定ではなく、実際の起動設定から作る。
+  - 実装：メニューは状態文、未反映表示、Start / Stop（`canStart` / `canStop` で可否）、未反映時のみ "Stop and Apply Saved Settings"、停止中・外部・エラー時の "Check Port Again"、Open Chat（`RunningInfo.settings.port` または `ExternalInfo.port` から生成）、サーバー／エンジンログを開く、ログフォルダ、Settings、Quit。設定画面は導入状況の確認、入力検証の表示、キャッシュがStrata全体の上限ではなく固定値は自動縮小されない旨の注記、稼働中の実設定と保存済み設定の差分表示、Save と "Save, Stop and Apply"、Pi側 `models.json` の手動調整の注記。
+  - 検証：build/testコマンドで成功（49件、警告なし）。画面の実機確認はTask 5で行う。
 - [ ] **実機検証と利用手順**：`README.md` にビルド、アプリ起動、Strataの事前導入、設定変更、停止、ログ確認、ポート／コンテキスト変更時のPi側調整を記載する。以下の検証を実施し、結果と残る制約をこの計画へ記録する。
 
 ## Final Validation

@@ -7,14 +7,18 @@ struct StrataMenubarApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(serverManager: container.serverManager)
+            MenuContent(
+                serverManager: container.serverManager,
+                settingsStore: container.settingsStore,
+                paths: container.paths
+            )
         } label: {
             Image(systemName: container.serverManager.state.symbolName)
         }
         .menuBarExtraStyle(.menu)
 
         Settings {
-            SettingsView()
+            SettingsView(settingsStore: container.settingsStore, serverManager: container.serverManager)
         }
     }
 }

@@ -263,9 +263,4 @@ extension ServerState {
         if case .failed(let message) = self { return message }
         return nil
     }
-
-    var runningInfo: RunningInfo? {
-        if case .running(let info) = self { return info }
-        return nil
-    }
 }
