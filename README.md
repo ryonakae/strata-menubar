@@ -31,18 +31,27 @@ It shows an icon in the menu bar and nothing in the Dock.
 
 Run the unit tests with the same command and `test` instead of `build`.
 
+One test, `RealStrataIntegrationTests`, drives the real Strata installation
+through the app's own components (start, answer, restart with a smaller
+context, stop). It is skipped unless `.build/real-strata.json` exists; create
+that file (`{}` is enough, or `{"continueDir": "/some/dir"}` to have the test
+pause while the server is up) to run it. It loads the model, writes the app's
+real run config and logs under `~/Library`, and takes a few minutes. If it
+fails before its final stop it tries to stop the server it started; check the
+menu bar app or `pgrep -f serve/server.py` afterwards.
+
 ## Use
 
 The menu shows one of these states:
 
 | State | Meaning |
 | --- | --- |
-| Stopped | Nothing listens on the configured port. |
+| Stopped | No Strata server is known on the configured port. The app only looks for Strata; another service holding the port is reported when you press Start. |
 | Starting | The server this app started is loading the model. |
 | Running | `/health` reports the model as loaded; the line shows model, context and port. |
 | Stopping | The server and its engine are shutting down. |
 | External Strata | A Strata server somebody else started is listening on the port. The app never stops it. |
-| Error | A launch, health check or stop failed; the message says what to look at. |
+| Error | A launch or a stop failed, the server exited on its own, or the port is held by something that is not Strata; the message says what to look at. A failing health check of a running server is shown on the Running line instead. |
 
 Actions:
 
@@ -51,8 +60,9 @@ Actions:
   process group owned by the app.
 - **Stop Server** sends SIGTERM to the server so it can shut the engine down
   itself, waits for that, and then terminates (and if necessary kills)
-  whatever is left in the group. Stopping can take up to a minute or so; the
-  engine frees its memory first.
+  whatever is left in the group. Stopping can take up to about two minutes
+  (90 s for the server to close the engine itself, then 20 s and 10 s for
+  anything left); the engine frees its memory first.
 - **Stop and Apply Saved Settings** appears when the saved settings differ from
   the ones the running server was started with.
 - **Open Chat** opens Strata's web page of the server that is actually
@@ -81,8 +91,8 @@ It is not a limit on Strata's total memory: with a 5 GB cache the engine's
 footprint was about 10.6 GB on an M-series Mac with 32 GiB. A fixed value is
 never shrunk automatically when memory runs short, and "about 16 GB overall" is
 an operating goal, not something the app enforces. Values that have not been
-tried here (caches under 3 GB or over 12 GB, contexts other than 8192) are
-flagged as warnings but allowed.
+tried here are flagged as warnings but allowed: caches under 3 GB or over
+12 GB, and contexts over 8192 or under 2048.
 
 Settings are saved in the app's user defaults and apply at the next start.
 While a server is running, **Save** keeps it as it is and **Save, Stop and
@@ -92,7 +102,8 @@ restarts the server on its own.
 
 At each start the app reads the current `strata-q2_0.json` from the Strata
 directory and writes a copy with only the managed keys changed
-(`--max-context`, `STRATA_METAL_ARENA_GB`, the engine log path and the port)
+(`--max-context`, `STRATA_METAL_ARENA_GB`, `STRATA_METAL_STREAM=1` when the
+base has no such key, the engine log path and the port)
 to `~/Library/Application Support/StrataMenubar/strata-q2_0.run.json`. The
 original file, `run-q2_0.sh` and the model files are never modified.
 
@@ -112,6 +123,9 @@ example:
 pi -p --no-tools --system-prompt "You are a terse assistant." \
   --provider strata --model qwen3.8-flash-next-q2_0 "Reply with the single word: pong"
 ```
+
+If your Pi configuration lives outside the default `~/.pi/agent`, point
+`PI_CODING_AGENT_DIR` at it first (here: `~/Dev/local/.pi`).
 
 ## Limitations
 

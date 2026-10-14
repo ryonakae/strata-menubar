@@ -20,12 +20,21 @@ struct RealStrataIntegrationTests {
 
     @Test(.enabled(if: enabled), .timeLimit(.minutes(60)))
     func startsAnswersAppliesSettingsAndStops() async throws {
-        let paths = AppPaths.standard
         let manager = ServerManager(
             launcher: PosixProcessLauncher(),
             probe: URLSessionHealthProbe(),
-            planner: StrataLaunchPlanner(paths: paths)
+            planner: StrataLaunchPlanner(paths: AppPaths.standard)
         )
+        do {
+            try await exercise(manager)
+        } catch {
+            // A step that throws must not leave the real server and its engine behind.
+            await manager.stop()
+            throw error
+        }
+    }
+
+    private func exercise(_ manager: ServerManager) async throws {
         let settings = StrataSettings.default
         note("memory before start:\n\(memoryReport())")
 
@@ -46,12 +55,19 @@ struct RealStrataIntegrationTests {
         note("memory after load and one answer:\n\(memoryReport())")
         await pause("running-1")
 
-        // Saving alone changes nothing: the same process keeps serving.
+        // Saving alone changes nothing: the same process keeps serving with the settings it was started with.
+        let suite = "RealStrataIntegrationTests.\(UUID().uuidString)"
+        let store = SettingsStore(defaults: try #require(UserDefaults(suiteName: suite)))
+        defer { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
+        var saved = settings
+        saved.maxContext = 4096
+        store.save(saved)
         try await Task.sleep(for: .seconds(2))
         #expect(manager.state.runningInfo?.pid == first.pid)
+        #expect(manager.state.runningInfo?.settings == settings)
+        #expect(await URLSessionHealthProbe().probe(port: 8080) == .strata(StrataHealth(loaded: true, model: StrataInstallation.modelName, maxContext: 8192)))
 
-        var changed = settings
-        changed.maxContext = 4096
+        let changed = saved
         let restarted = ContinuousClock.now
         await manager.restart(settings: changed)
         #expect(await waitUntil(timeout: Self.loadTimeout) { manager.state.isRunning || manager.state.isFailed })
@@ -61,12 +77,14 @@ struct RealStrataIntegrationTests {
         #expect(second.maxContext == 4096)
         #expect(second.settings == changed)
         #expect(!isAlive(first.pid))
+        #expect(!isGroupAlive(first.pid))
         await pause("running-2")
 
         await manager.stop()
         #expect(manager.state == .stopped, "state after stop: \(manager.state)")
         #expect(!manager.ownsProcess)
         #expect(!isAlive(second.pid))
+        #expect(!isGroupAlive(second.pid))
         #expect(await URLSessionHealthProbe().probe(port: 8080) == .unreachable)
         note("memory after stop:\n\(memoryReport())")
     }
@@ -105,6 +123,11 @@ struct RealStrataIntegrationTests {
 
     private func isAlive(_ pid: pid_t) -> Bool {
         kill(pid, 0) == 0 || errno == EPERM
+    }
+
+    /// The engine lives in the server's process group; an empty group is the proof that it is gone too.
+    private func isGroupAlive(_ processGroup: pid_t) -> Bool {
+        kill(-processGroup, 0) == 0 || errno == EPERM
     }
 
     private func memoryReport() -> String {
