@@ -67,7 +67,9 @@ Review base commit: `fe85445`（Initial commit）。
 - [x] **ビルド可能なメニューバーアプリの土台**：`StrataMenubar.xcodeproj`、`StrataMenubar/App/` を作成し、MenuBarExtra・設定ウィンドウ・終了フロー・共有schemeを用意する。
   - 実装：`PBXFileSystemSynchronizedRootGroup` でフォルダ同期するプロジェクト（objectVersion 77）、`LSUIElement` はビルド設定で生成。終了フローは `QuitRequirement(state:ownsProcess:)` で判定し、`AppDelegate` が確認・保留・キャンセルを扱う。テストはSwift Testing。
   - 検証：Final Validationのbuild/testコマンドで成功（QuitRequirementTests 4件）。Swiftマクロのplugin serverは内側で `sandbox-exec` を使うため、エージェントのSafehouseサンドボックス内では `malformed response` で失敗する。ビルド・テストはHerdrペイン（サンドボックス外）に委譲して実行した。
-- [ ] **設定と実行用JSON生成**：`StrataMenubar/Settings/` と `StrataMenubar/Strata/` に設定保存、入力検証、Strata導入状況の確認、ベースJSONからのコピー生成を実装する。`StrataMenubarTests/` に元データ保全・引数更新・パス処理のテストを追加する。
+- [x] **設定と実行用JSON生成**：`StrataMenubar/Settings/` と `StrataMenubar/Strata/` に設定保存、入力検証、Strata導入状況の確認、ベースJSONからのコピー生成を実装する。`StrataMenubarTests/` に元データ保全・引数更新・パス処理のテストを追加する。
+  - 実装：`StrataSettings.validate()` はエラー（非正・非有限キャッシュ、非正コンテキスト、1024〜65535外のポート、空ディレクトリ）と警告（キャッシュ3 GB未満・12 GB超、コンテキスト8192超・2048未満）を返す。`RunConfig.make` は `args` の `--max-context`、`env` の `STRATA_METAL_ARENA_GB`（`STRATA_METAL_STREAM` が無ければ `1` を補う）、`log`、`port` だけを変更し、他のキーは保持する。`StrataInstallation.check` はPython・server.py・ベースJSON・`exe`・`--pack/--native/--ple-gguf/--expert-profile` の参照先・tokenizer・`model_name == qwen3.8-flash-next-q2_0` を確認する。実行用JSONは `~/Library/Application Support/StrataMenubar/strata-q2_0.run.json`、ログは `~/Library/Logs/StrataMenubar/{server,engine}.log`（10 MB超で `.1` へ退避）。
+  - 検証：testコマンドで22件成功（設定の保存・検証、無関係キーの保持、コンテキスト引数の更新・追加、空白と日本語を含むパス、元JSONのバイト一致、Python欠落・別モデルの具体的なエラー）。
 - [ ] **サーバーのライフサイクル管理**：`StrataMenubar/Strata/` に所有プロセスの起動・停止、非同期health確認、外部稼働・競合検出、エラーとログの処理を実装する。実モデルを起動せず検証できる状態テストと、子プロセスを作る小さなテスト用fixtureで所有範囲・停止を検証する。
 - [ ] **メニューと設定の接続**：`StrataMenubar/Views/` とApp層に状態別表示・操作可否・設定の未反映表示・「停止して反映」・チャットとログを開く操作を実装する。現在動くサーバーのURLは未反映設定ではなく、実際の起動設定から作る。
 - [ ] **実機検証と利用手順**：`README.md` にビルド、アプリ起動、Strataの事前導入、設定変更、停止、ログ確認、ポート／コンテキスト変更時のPi側調整を記載する。以下の検証を実施し、結果と残る制約をこの計画へ記録する。
