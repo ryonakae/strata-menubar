@@ -7,20 +7,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch manager.quitRequirement {
         case .none:
             return .terminateNow
-        case .waitForStop:
-            Task { @MainActor in
-                await manager.waitForIdle()
-                sender.reply(toApplicationShouldTerminate: true)
-            }
-            return .terminateLater
         case .confirmStop(let description):
             guard confirmStopBeforeQuit(description) else { return .terminateCancel }
-            Task { @MainActor in
+        case .waitForStop:
+            break
+        }
+        Task { @MainActor in
+            sender.reply(toApplicationShouldTerminate: await settleBeforeQuit(manager))
+        }
+        return .terminateLater
+    }
+
+    /// Stops whatever the app owns and only then allows the quit. The requirement is re-read after every wait: a stop
+    /// can fail and keep the process, and a restart can hand over a brand-new server while we were waiting.
+    private func settleBeforeQuit(_ manager: ServerManager) async -> Bool {
+        while true {
+            switch manager.quitRequirement {
+            case .none:
+                return true
+            case .waitForStop:
+                await manager.waitForIdle()
+            case .confirmStop:
                 await manager.stop()
-                let proceed = !manager.ownsProcess || confirmQuitLeavingProcess()
-                sender.reply(toApplicationShouldTerminate: proceed)
+                if manager.ownsProcess {
+                    return confirmQuitLeavingProcess()
+                }
             }
-            return .terminateLater
         }
     }
 
