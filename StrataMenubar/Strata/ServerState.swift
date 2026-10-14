@@ -1,0 +1,55 @@
+import Foundation
+
+/// What the menu bar shows. Only `starting`, `running`, `stopping` and a failed stop refer to a process this app owns;
+/// `external` is a Strata server somebody else started on the configured port and is never controlled from here.
+enum ServerState: Equatable, Sendable {
+    case stopped
+    case starting(StartingInfo)
+    case running(RunningInfo)
+    case stopping
+    case external(ExternalInfo)
+    case failed(String)
+}
+
+struct StartingInfo: Equatable, Sendable {
+    var pid: pid_t
+    var port: Int
+    var since: Date
+}
+
+struct RunningInfo: Equatable, Sendable {
+    var pid: pid_t
+    var port: Int
+    var model: String?
+    var maxContext: Int?
+    var since: Date
+}
+
+struct ExternalInfo: Equatable, Sendable {
+    var port: Int
+    var loaded: Bool
+    var model: String?
+    var maxContext: Int?
+}
+
+/// What quitting the app has to do before the process may exit.
+enum QuitRequirement: Equatable, Sendable {
+    case none
+    case waitForStop
+    case confirmStop(String)
+
+    init(state: ServerState, ownsProcess: Bool) {
+        switch state {
+        case .starting(let info):
+            self = .confirmStop("The server (PID \(info.pid)) is still starting")
+        case .running(let info):
+            self = .confirmStop("The server (PID \(info.pid)) is running on port \(info.port)")
+        case .stopping:
+            self = .waitForStop
+        case .failed where ownsProcess:
+            self = .confirmStop("A server process started by this app may still be running")
+        case .stopped, .external, .failed:
+            self = .none
+        }
+    }
+}
