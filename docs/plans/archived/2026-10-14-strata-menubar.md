@@ -100,8 +100,16 @@ Review base commit: `fe85445`（Initial commit）。
 - [x] 設定保存のみでは稼働プロセスが変化せず、「停止して反映」で正常停止後に新しい値で1プロセスだけ起動する。代表的な設定変更を実測し、元JSONとモデルデータに変更がないことを確認する。→ 統合テストで別 UserDefaults suite の `SettingsStore.save`（コンテキスト 4096）後に PID・適用設定・`/health` が不変であることを確認し、その後 `restart`：旧 PID 消滅、新 PID 89358 / engine 89359 の各1プロセス、`/health` `max_context: 4096`。`strata-q2_0.json`・`run-q2_0.sh` の SHA-256 と、モデル `.gguf`・`dense.bin` の mtime/size が前後で一致。
 - [x] Piから既存のStrataモデルへ短い質問を送り応答を確認する。Piのグローバル設定やデフォルトは変更しない。既存8Kコンテキストで通常の全ツール構成まで保証したとは報告しない。→ `PI_CODING_AGENT_DIR=~/Dev/local/.pi pi -p --no-tools --system-prompt "You are a terse assistant." --provider strata --model qwen3.8-flash-next-q2_0` で「pong」（プロンプト1,176トークン）。既定のコーディング用システムプロンプト＋組み込みツールではプロンプトだけで 8,326 トークンとなり、サーバーが 400（context exceeded）を返した。全ツール構成は 8K では動作しない。Pi の設定は変更せず、セッションは scratchpad に保存。
 - [x] 実サーバー停止と稼働中のアプリ終了 → サーバー・Metalエンジンが終了し、ポートが解放される。ログだけでなくプロセスの終了も確認する。→ 統合テストの `stop()` 後、旧・新サーバーのプロセスグループが `kill(-pgid, 0)` で ESRCH、`pgrep` で server.py / strata が存在せず、`lsof` で 8080 が空き、`server.log` に `[strata] stopping ... stopped` が2回（再起動時と停止時）。稼働中のアプリ終了（メニューの Quit → 確認ダイアログ）は GUI 未検証。
-- [ ] `git diff --check`、差分とREADMEのコマンド・参照パスを確認 → モデル・実行ログ・生成設定・ビルド成果物・秘密が追跡対象に混入せず、合意範囲外の変更がない。
+- [x] `git diff --check`、差分とREADMEのコマンド・参照パスを確認 → モデル・実行ログ・生成設定・ビルド成果物・秘密が追跡対象に混入せず、合意範囲外の変更がない。→ `git diff --check fe85445 HEAD` clean。追跡対象はプロジェクト・ソース・テスト・README・LICENSE・.gitignore・この計画のみ（`git ls-files` で確認）。`.build/`・実行ログ・生成JSON は `~/Library` 配下または gitignore 対象。
 
 実機適用・GUI検証は通常のユーザー環境で行う。エージェントのsandboxで操作が拒否された場合、権限を緩和せず必要な操作をユーザーへ引き継ぐ。実モデルの再ダウンロードや検証目的のシステム設定変更は行わない。
 
 > 各タスクは対応する検証が成功してから完了にする。実装中の軽微な差分と検証結果は該当箇所へ反映し、要件、対象外、公開契約の変更はユーザーへ確認する。最終確認では有効な検証結果を再利用し、計画と実際の変更が一致することを確認する。必要な検証と実装側の必須レビューが通ったら、計画を同名のまま `docs/plans/archived/` へ移す。
+
+## Gate summary
+
+- Review 対象 commit：`fe85445..6cd8707`（eb12baa, 8208060, 5c27cb0, e085fbd, 187a7d2, 43a3570, 6cd8707）。
+- 独立レビュー：Unit A（Task 1〜3）で blocking/high 1件を採用し `187a7d2` で修正、再レビューで resolved。Unit B（Task 4〜5）は blocking/high なし。medium/low のうち README の事実誤りと統合テストの不足を `6cd8707` で修正、再レビューで resolved。
+- decision required 6件（`refresh` による `failed` の置換、環境変数の全継承、アイドル監視での非Strata占有の非表示、`external` の最大10秒の陳腐化、`stopping` 中の Quit で restart 後の新サーバーを確認なしに停止、Pi の `models.json` のパスを文言に含める）は、ユーザーが現状維持を承認。
+- 未解決の blocking/high・decision required：なし。GUI操作（メニュー・設定画面・終了確認ダイアログ）は未検証のままユーザー確認へ引き継ぎ。
+- Final validation：build / test（50件、実Strata統合テスト含む）成功、`git diff --check` clean、作業ツリーに実装由来の残置なし。
