@@ -10,7 +10,16 @@ struct TestInstallation {
 
     var python: URL { root.appending(path: ".venv/bin/python") }
     var server: URL { root.appending(path: "serve/server.py") }
-    var baseConfig: URL { root.appending(path: "strata-q2_0.json") }
+    var baseConfig: URL { configURL(for: "q2_0") }
+
+    func configURL(for tag: String) -> URL {
+        root.appending(path: "strata-\(tag).json")
+    }
+
+    /// Writes another installed model's config next to the first, sharing the same model files.
+    func addModel(tag: String, modelName: String) throws {
+        try Self.writeConfig(to: configURL(for: tag), root: root, data: dataDirectory, modelName: modelName, includeMaxContext: true)
+    }
 
     static func make(
         named name: String = "Strata",
@@ -37,6 +46,11 @@ struct TestInstallation {
         try write("", to: data.appending(path: "models/Q2_0/model-00002-of-00002.gguf"))
         try write("{}", to: data.appending(path: "packs/q2_0/tokenizer/vocab.json"))
 
+        try writeConfig(to: install.baseConfig, root: root, data: data, modelName: modelName, includeMaxContext: includeMaxContext)
+        return install
+    }
+
+    private static func writeConfig(to url: URL, root: URL, data: URL, modelName: String, includeMaxContext: Bool) throws {
         var args = [
             "--pack", data.appending(path: "packs/q2_0").path(percentEncoded: false),
             "--native", data.appending(path: "models/Q2_0/model-00001-of-00002.gguf").path(percentEncoded: false),
@@ -64,8 +78,7 @@ struct TestInstallation {
             "env": ["STRATA_METAL_STREAM": "1"],
         ]
         let json = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
-        try json.write(to: install.baseConfig)
-        return install
+        try json.write(to: url)
     }
 
     func remove() {

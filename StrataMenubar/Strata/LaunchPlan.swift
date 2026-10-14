@@ -37,16 +37,17 @@ struct StrataLaunchPlanner: LaunchPlanning {
             throw LaunchPlanError.invalidSettings(errors)
         }
         let installation = StrataInstallation(root: settings.strataDirectoryURL)
-        let problems = installation.check()
+        let problems = installation.check(model: settings.model)
         guard problems.isEmpty else {
             throw LaunchPlanError.installation(problems)
         }
+        let runConfig = paths.runConfig(for: settings.model)
         do {
             try FileManager.default.createDirectory(at: paths.applicationSupport, withIntermediateDirectories: true)
             try LogStore(paths: paths).prepareForLaunch()
-            let base = try Data(contentsOf: installation.baseConfig)
+            let base = try Data(contentsOf: installation.configURL(for: settings.model))
             let run = try RunConfig.make(base: base, settings: settings, engineLog: paths.engineLog)
-            try run.write(to: paths.runConfig, options: .atomic)
+            try run.write(to: runConfig, options: .atomic)
         } catch {
             throw LaunchPlanError.configuration(error.localizedDescription)
         }
@@ -55,7 +56,7 @@ struct StrataLaunchPlanner: LaunchPlanning {
             arguments: [
                 installation.server.path(percentEncoded: false),
                 "--engine", "strata",
-                "--config", paths.runConfig.path(percentEncoded: false),
+                "--config", runConfig.path(percentEncoded: false),
                 "--host", StrataEndpoint.host,
                 "--port", String(settings.port),
             ],

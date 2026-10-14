@@ -112,7 +112,7 @@ struct SettingsView: View {
     }
 
     private func checkInstallation() {
-        installationProblems = StrataInstallation(root: draft.strataDirectoryURL).check()
+        installationProblems = StrataInstallation(root: draft.strataDirectoryURL).check(model: draft.model)
     }
 
     private func save() {

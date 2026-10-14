@@ -15,7 +15,11 @@ struct AppPaths: Equatable, Sendable {
         )
     }()
 
-    var runConfig: URL { applicationSupport.appending(path: "strata-q2_0.run.json") }
+    /// The run config written for one installed model: the base `strata-<tag>.json` with the managed keys changed.
+    func runConfig(for tag: String) -> URL {
+        applicationSupport.appending(path: "strata-\(tag).run.json")
+    }
+
     var serverLog: URL { logs.appending(path: "server.log") }
     var engineLog: URL { logs.appending(path: "engine.log") }
 }

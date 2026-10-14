@@ -17,6 +17,7 @@ struct RealStrataIntegrationTests {
     private nonisolated static var enabled: Bool { optIn != nil }
     private nonisolated static var continueDirectory: URL? { optIn?["continueDir"].map { URL(filePath: $0) } }
     private nonisolated static let loadTimeout: Duration = .seconds(900)
+    private nonisolated static let modelName = "qwen3.8-flash-next-q2_0"
 
     @Test(.enabled(if: enabled), .timeLimit(.minutes(60)))
     func startsAnswersAppliesSettingsAndStops() async throws {
@@ -44,10 +45,10 @@ struct RealStrataIntegrationTests {
         #expect(await waitUntil(timeout: Self.loadTimeout) { manager.state.isRunning || manager.state.isFailed })
         let first = try #require(manager.state.runningInfo, "state: \(manager.state)")
         note("running: pid \(first.pid), model \(first.model ?? "?"), context \(first.maxContext ?? 0), after \(ContinuousClock.now - started)")
-        #expect(first.model == StrataInstallation.modelName)
+        #expect(first.model == Self.modelName)
         #expect(first.maxContext == 8192)
         #expect(first.settings == settings)
-        #expect(await URLSessionHealthProbe().probe(port: 8080) == .strata(StrataHealth(loaded: true, model: StrataInstallation.modelName, maxContext: 8192)))
+        #expect(await URLSessionHealthProbe().probe(port: 8080) == .strata(StrataHealth(loaded: true, model: Self.modelName, maxContext: 8192)))
 
         let answer = try await ask("Reply with the single word: pong", port: 8080)
         note("answer: \(answer)")
@@ -65,7 +66,7 @@ struct RealStrataIntegrationTests {
         try await Task.sleep(for: .seconds(2))
         #expect(manager.state.runningInfo?.pid == first.pid)
         #expect(manager.state.runningInfo?.settings == settings)
-        #expect(await URLSessionHealthProbe().probe(port: 8080) == .strata(StrataHealth(loaded: true, model: StrataInstallation.modelName, maxContext: 8192)))
+        #expect(await URLSessionHealthProbe().probe(port: 8080) == .strata(StrataHealth(loaded: true, model: Self.modelName, maxContext: 8192)))
 
         let changed = saved
         let restarted = ContinuousClock.now
@@ -95,7 +96,7 @@ struct RealStrataIntegrationTests {
         request.timeoutInterval = 600
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "model": StrataInstallation.modelName,
+            "model": Self.modelName,
             "messages": [["role": "user", "content": question]],
             "max_tokens": 64,
             "stream": false,

@@ -34,7 +34,7 @@ struct StrataLaunchPlannerTests {
         #expect(plan.arguments == [
             install.server.path(percentEncoded: false),
             "--engine", "strata",
-            "--config", paths.runConfig.path(percentEncoded: false),
+            "--config", paths.runConfig(for: "q2_0").path(percentEncoded: false),
             "--host", "127.0.0.1",
             "--port", "8090",
         ])
@@ -43,7 +43,7 @@ struct StrataLaunchPlannerTests {
         #expect(plan.standardOutputLog == paths.serverLog)
         #expect(try Data(contentsOf: install.baseConfig) == baseBefore)
 
-        let written = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: paths.runConfig)) as? [String: Any])
+        let written = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: paths.runConfig(for: "q2_0"))) as? [String: Any])
         let args = try #require(written["args"] as? [String])
         #expect(args.contains("--max-context"))
         #expect(args[args.firstIndex(of: "--max-context")! + 1] == "4096")
@@ -65,15 +65,34 @@ struct StrataLaunchPlannerTests {
         }
     }
 
-    @Test func refusesABaseConfigForAnotherModel() throws {
-        let install = try TestInstallation.make(modelName: "qwen3.8-flash-next-iq3_s")
+    @Test func startsWhicheverInstalledModelIsSelected() throws {
+        let install = try TestInstallation.make()
         defer { install.remove() }
+        try install.addModel(tag: "iq3_xxs", modelName: "qwen3.8-flash-next-iq3_xxs")
+        let paths = paths()
+        defer { remove(paths) }
+        var settings = settings(for: install)
+        settings.model = "iq3_xxs"
+
+        let plan = try StrataLaunchPlanner(paths: paths).makePlan(settings: settings)
+
+        #expect(plan.arguments.contains(paths.runConfig(for: "iq3_xxs").path(percentEncoded: false)))
+        #expect(paths.runConfig(for: "iq3_xxs").lastPathComponent == "strata-iq3_xxs.run.json")
+        let written = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: paths.runConfig(for: "iq3_xxs"))) as? [String: Any])
+        #expect(written["model_name"] as? String == "qwen3.8-flash-next-iq3_xxs")
+    }
+
+    @Test func refusesAModelThatIsNotInstalledAndNamesTheInstalledOnes() throws {
+        let install = try TestInstallation.make()
+        defer { install.remove() }
+        var settings = settings(for: install)
+        settings.model = "iq3_s"
 
         #expect {
-            try StrataLaunchPlanner(paths: paths()).makePlan(settings: settings(for: install))
+            try StrataLaunchPlanner(paths: paths()).makePlan(settings: settings)
         } throws: { error in
             guard case LaunchPlanError.installation(let problems) = error else { return false }
-            return problems.count == 1 && problems[0].contains("qwen3.8-flash-next-q2_0")
+            return problems.count == 1 && problems[0].contains("strata-iq3_s.json") && problems[0].contains("q2_0")
         }
     }
 
