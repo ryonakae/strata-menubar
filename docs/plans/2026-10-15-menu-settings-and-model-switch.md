@@ -10,7 +10,7 @@ dig log: [docs/dig/2026-10-15-popover-sliders-model.md](../dig/2026-10-15-popove
 - Model の選択肢は、Strata ディレクトリ直下にある setup 済みの `strata-<tag>.json` の一覧。設定にはファイル名の stem（`strata-q2_0.json` → `q2_0`）を保存し、表示は JSON の `model_name`。未保存時の既定は `q2_0` があればそれ、なければ一覧の先頭。保存済みの tag の JSON がなくなっていれば、導入済み一覧を添えたエラーにする。Q2_0 専用のチェック（`model_name == qwen3.8-flash-next-q2_0`）は廃止し、選んだ JSON に `model_name`・`exe`・`args`・参照ファイルがあることだけを確認する。
 - Expert cache の選択肢は 1 GB 刻み、下限 1 GB、上限は実行中の Mac の物理メモリ量（GiB、32 GiB なら 32）。禁止はせず、物理メモリの 50% 超（32 GiB なら 17 GB 以上）と 2 GB 未満で警告する。文言に根拠（割合、約 0.8 GB で失敗しプロンプト用 1.36 GB が必要という実測）を添える。
 - Context の選択肢は 1024 / 2048 / 4096 / 8192 / 16384 / 32768 の 6 段。8192 超（未検証でメモリ増）と 2048 未満（Pi の maxTokens 2048 が入らない）の警告文は維持する。
-- 設定画面：Expert cache と Context はスライダー（同じ範囲・段）、Model はポップアップメニュー。保存は即時（スライダーを離した時点、モデルを選んだ時点、ポート・ディレクトリの入力確定時）。検証エラーの値は保存せずエラー表示のままにする。Save / Revert ボタンは廃止し、稼働中に保存値と実設定が異なるときだけ「Stop and Apply」を出す。注記として「この Mac では 5 GB で起動時のフットプリント約 13 GB」の実測を事実として書く。
+- 設定画面：Expert cache と Context はスライダー（同じ範囲・段）、Model はポップアップメニュー。これらとポート・ディレクトリは下書きを編集し、「Apply」で保存する（検証エラーがあれば Apply 不可、「Revert」で保存値に戻す）。未適用の変更があるままウィンドウを閉じようとしたら破棄確認ダイアログ（Discard Changes / Keep Editing）を出す。稼働中は「Apply and Restart Server」（保存して再起動）を置き、下書きが保存済みと同じで保存済みが実設定と異なるときは「Stop and Apply Saved Settings」。どちらも選択中モデルの導入確認が失敗している間は無効。注記として「この Mac では 5 GB で起動時のフットプリント約 13 GB」の実測を事実として書く。（当初の「即時保存・Save / Revert 廃止」はユーザーの決定で置換。dig log 参照。）
 - 設定画面に、別モデルを取得・導入するための案内を置く：docs/MAC.md の Mac 向け一覧（Q2_0 / IQ3_XXS / IQ3_S / UD-Q4_K_XL / UD-Q5_K_XL / UD-Q6_K_XL、GPU がマップするファイルの容量、必要メモリの目安、推奨 RAM、setup.py のダウンロード容量）をアプリに固定で持ち、ポップアップメニューで選ぶと `cd "<Strataの場所>" && ./setup.sh --setup --model <MODEL> --no-start` が組み上がる。導入済みのものには印を付ける。コマンドはボタンでクリップボードへコピーできる。`--yes` は付けない。
 - Pi の注記に「モデルを変えると `/v1/models` のモデル ID（`model_name`）が変わるので `models.json` の `id` も合わせる」を加える。
 - 対象外：アプリによるモデルの取得・setup の実行、`.window` スタイルのポップアップ、AppKit でのメニュー作り直し、自動再起動、Strata 本体・モデル・Pi 設定の書き換え。
@@ -24,7 +24,7 @@ dig log: [docs/dig/2026-10-15-popover-sliders-model.md](../dig/2026-10-15-popove
 - `AppPaths.runConfig(for tag:)` → `strata-<tag>.run.json`。`StrataLaunchPlanner.makePlan` は `settings.model` の JSON をベースに読み、`--config` にその tag の run config を渡す。`RunConfig.make` は変更しない。
 - 案内の固定一覧は `StrataModelCatalog`（`name`、`mappedFileGB`、`needsAboutGB`、`recommendedFromGB`、`downloadGB`、`note`）として docs/MAC.md と setup.py の数値を転記する。`SetupCommand.make(strataDirectory:model:) -> String` が `cd "<path>" && ./setup.sh --setup --model <MODEL> --no-start` を返し、パスの `"` と `\` はエスケープする。クリップボードは `NSPasteboard.general` に `clearContents()` 後 `setString(_:forType: .string)`。
 - メニューのサブメニューは `Menu { Picker(selection:) { … }.pickerStyle(.inline) }` で作り、選択の `set` で `settingsStore.save` する。`.menu` スタイルではメニューを開くたびに内容が評価されるので、導入済み一覧はメニュー内容の評価時に `installedModels()` を呼んで取得する（ディレクトリ直下の数ファイルの列挙なので同期でよい）。
-- 設定画面は `@State` の下書きを廃し、`settingsStore.settings` を元にした Binding で各コントロールを描く。スライダーは `Slider(value:in:step:onEditingChanged:)` で、編集終了時に保存する。ポートとディレクトリは `TextField` の `onSubmit` と focus 喪失で検証し、エラーがなければ保存、あればエラーを表示して保存しない。
+- 設定画面は `@State` の下書き `draft: StrataSettings` を編集し、「Apply」で `settingsStore.save(draft)`。ポートは文字列の下書きから解釈し、数値でなければエラー表示。メニューから保存されたとき、下書きが旧保存値と同じなら新しい保存値に追従し、編集中なら下書きを保つ。閉じる操作は `NSViewRepresentable` でウィンドウの `NSWindowDelegate` を差し替えて `windowShouldClose` を横取りし（他の delegate 呼び出しは元の delegate へ転送）、未適用なら `NSAlert` のシートで確認してから閉じる。
 - 警告・エラーの文言は `StrataSettings.validate` に集約し、設定画面はそれを表示するだけにする。
 
 ## Tasks
@@ -34,6 +34,7 @@ Review base commit: `60edd37`。
 ### Review log
 
 - 全体（Task 1〜4、`60edd37..815ecca`）：独立レビュー（read-only agent）。blocking/high 1件を採用：未保存時の既定モデルで「`q2_0` がなければ導入済み一覧の先頭」が未実装（`SettingsStore` が無条件に `q2_0`）。修正：`model` キーがないときは Strata ディレクトリの導入済み一覧を見て、`q2_0` があるか一覧が空なら `q2_0`、なければ先頭の tag。あわせて medium/low のうち、Check ボタンが入力中のパスを確認しない退行、README の文言（テキスト欄の保存契機、「Stop and Apply」は差異があるときだけ）、Plan に挙げたテストの不足（`model_name` 欠損 JSON、`strata-q2_0.run.json` の名前の固定、`\` のエスケープ、奇数 GiB の切り上げ）を修理として採用。decision required 2件はユーザーが決定：入力未確定のディレクトリ／ポートはウィンドウを閉じると破棄（README に明記）、導入確認が失敗している間は「Stop and Apply」をメニュー・設定画面とも無効化（メニューには先頭の問題を表示）。残りの medium/low は completion report に記載。
+- 再レビュー（`647aefa`）：Decision 2 と採用した medium は resolved。新規 blocking/high 1件：README の「未確定の入力は閉じると破棄」に実装の裏付けがない（focus 喪失時の保存が閉じるときにも走り得る）。correction が新しい blocking を生んだため停止してユーザーに確認 → ユーザーは Requirement を変更：設定ウィンドウは下書き + Apply、未適用で閉じるときは破棄確認、メニューは即時保存のまま。Plan と dig log を更新し、設定画面を再実装して full review を行う。
 - 再レビュー（`7dc31f3`）：blocking 解消、新規 blocking/high なし。指摘のうち、`SettingsStoreTests` が実機の `~/Dev/local/Strata` を走査する点と Plan 本文の古い記述を修理として採用。新たな decision required 1件（モデルを一度も選ばないままディレクトリ等を保存すると、暗黙の既定 `model` が永続化され、新ディレクトリに無いモデルになり得る）はユーザー確認待ち。
 
 - [x] **設定モデルの拡張**：`StrataMenubar/Settings/StrataSettings.swift`（`model` 追加、`validate(memory:)`、`MemoryBudget`、`ContextSteps`）、`StrataMenubar/Settings/SettingsStore.swift`（`model` の保存と既定）を変更する。`StrataMenubarTests/StrataSettingsTests.swift`・`SettingsStoreTests.swift` を新しい閾値（物理メモリ 32 GiB 固定で 17 GB 以上と 2 GB 未満が警告、16 GB は警告なし、8192 超・2048 未満の警告は維持）、`model` の既定と往復、`ContextSteps` の index↔値の写像（段にない値は最も近い段）に合わせて更新する。
@@ -49,6 +50,7 @@ Review base commit: `60edd37`。
   - メニューのサブメニューと設定画面は同じ `SettingsStore` を見るので、片方で保存すればもう片方にも反映される。
   - 実装：`MenuContent` に「Model: <model_name>」「Expert cache: N GB」「Context: N」のサブメニュー（`Menu` + inline `Picker`、選択で `settingsStore.save`）。導入済み一覧はメニュー内容の評価時に `installedModels()` で取得し、空なら無効の案内行、保存値が一覧になければ「(not installed)」の項目を足す。保存値が選択肢にない数値（4.5 GB や 6144）は現在値の項目として並べる。`SettingsView` は下書きを廃し、スライダー（cache: 1〜物理 GiB、1 刻み。context: 段の index 0〜5）の編集終了で保存、Model の `Picker` は即保存、ディレクトリとポートは `onSubmit` と focus 喪失で検証して保存（不正なら前の値を保持しエラー表示）。Save / Revert を廃止し、稼働中に差があれば「Stop and Apply」。注記（5 GB → 約 13 GB の実測、警告は実績の説明のみ）、Pi の注記（モデル ID）、「Install another model」セクション（pack の `Picker`、容量・必要メモリ・推奨 RAM・導入済み表示、コマンドの表示と Copy Command（`NSPasteboard.general`）、2 秒間 "Copied" 表示）。
   - 検証：build / test 成功（61件、警告なし）。画面の実機確認は Task 4。
+  - 仕様変更後の再実装：`SettingsView` は `draft` を編集し、Apply（`.defaultAction`、dirty かつエラーなしで有効）／Revert、稼働中は「Apply and Restart Server」（保存して `restart`）、下書きが保存値と同じで保存値が実設定と異なるときは「Stop and Apply Saved Settings」。両ボタンは選択中モデルの導入確認失敗時に無効。`WindowCloseGuard`（`NSViewRepresentable`）がウィンドウの delegate を差し替えて `windowShouldClose` で未適用なら `NSAlert` のシート（Discard Changes / Keep Editing）を出し、他の delegate 呼び出しは元の delegate に転送する。メニューからの保存は、下書きが旧保存値と同じときだけ追従。build / test 成功（63件、警告なし）。
 - [x] **README と実機検証**：`README.md` の Use / Settings / Limitations を更新する（サブメニューでの変更、即時保存、モデル切替と `strata-<model>.json` の一覧、取得コマンドの案内、Q2_0 専用の記述の削除、Pi のモデル ID の注記、警告の根拠）。以下の Final Validation を実施し、結果をこの計画に記録する。
   - 実装：README の冒頭・Requirements・Use（サブメニュー）・Settings（表、警告の根拠、即時保存、`strata-<model>.run.json`）・「Installing another model」・Pi（モデル ID）・Limitations を更新。
 

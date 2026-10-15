@@ -83,10 +83,11 @@ Actions:
 
 ## Settings
 
-Open **Settings…** from the menu (or ⌘,). Sliders and pickers save as soon as
-you use them, text fields when you press Return or leave the field; there is
-no Save button, and an entry you never confirmed is dropped when the window
-closes.
+Open **Settings…** from the menu (or ⌘,). The window edits a draft: change
+the sliders, the model picker or the text fields, then press **Apply** to save
+(it is disabled while a value is invalid) or **Revert** to go back to the
+saved values. Closing the window with unapplied changes asks whether to
+discard them. The menu bar's submenus, by contrast, save at once.
 
 | Setting | Default | Notes |
 | --- | --- | --- |
@@ -108,11 +109,13 @@ over 8192 (untested here, more memory) or under 2048 (Pi's maxTokens does not
 fit).
 
 Settings are saved in the app's user defaults and apply at the next start.
-While a server is running, the window shows the settings it was started with
-and, when the saved ones differ, offers **Stop and Apply**. That button (and
-the menu's) is disabled while the selected model's installation check fails,
-so a working server is never stopped for a launch that cannot succeed. The app
-never restarts the server on its own.
+While a server is running, the window shows the settings it was started with.
+**Apply and Restart Server** saves the draft and restarts with it; when the
+saved settings already differ from the running ones, **Stop and Apply Saved
+Settings** restarts with the saved values. Both buttons (and the menu's) are
+disabled while the selected model's installation check fails, so a working
+server is not stopped for a launch that cannot succeed. The app never restarts
+the server on its own.
 
 At each start the app reads the selected model's `strata-<model>.json` from the
 Strata directory and writes a copy with only the managed keys changed
