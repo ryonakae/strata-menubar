@@ -3,6 +3,11 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let draft = AppContainer.shared.settingsDraft
+        if draft.isDirty {
+            guard confirmDiscardingSettingsDraft() else { return .terminateCancel }
+            draft.discard()
+        }
         let manager = AppContainer.shared.serverManager
         switch manager.quitRequirement {
         case .none:
@@ -34,6 +39,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+    }
+
+    private func confirmDiscardingSettingsDraft() -> Bool {
+        let alert = UnappliedChangesAlert.make(informativeText: "The settings window has changes that have not been applied. Quit anyway?")
+        NSApp.activate()
+        return alert.runModal() == UnappliedChangesAlert.discardResponse
     }
 
     private func confirmStopBeforeQuit(_ description: String) -> Bool {

@@ -86,8 +86,9 @@ Actions:
 Open **Settings…** from the menu (or ⌘,). The window edits a draft: change
 the sliders, the model picker or the text fields, then press **Apply** to save
 (it is disabled while a value is invalid) or **Revert** to go back to the
-saved values. Closing the window with unapplied changes asks whether to
-discard them. The menu bar's submenus, by contrast, save at once.
+saved values. Closing the window or quitting the app with unapplied changes
+asks whether to discard them (Keep Editing is the default answer). The menu
+bar's submenus, by contrast, save at once.
 
 | Setting | Default | Notes |
 | --- | --- | --- |
@@ -111,8 +112,8 @@ fit).
 Settings are saved in the app's user defaults and apply at the next start.
 While a server is running, the window shows the settings it was started with.
 **Apply and Restart Server** saves the draft and restarts with it; when the
-saved settings already differ from the running ones, **Stop and Apply Saved
-Settings** restarts with the saved values. Both buttons (and the menu's) are
+draft is applied but the saved settings differ from the running ones, **Stop
+and Apply Saved Settings** restarts with the saved values. Both buttons (and the menu's) are
 disabled while the selected model's installation check fails, so a working
 server is not stopped for a launch that cannot succeed. The app never restarts
 the server on its own.

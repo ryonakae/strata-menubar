@@ -6,27 +6,28 @@ import SwiftUI
 struct SettingsView: View {
     let settingsStore: SettingsStore
     let serverManager: ServerManager
+    let draftState: SettingsDraftState
 
     private let memory = MemoryBudget.current
 
     @State private var draft: StrataSettings
     @State private var portText: String
-    @State private var contextIndex: Double
     @State private var installationProblems: [String]?
     @State private var packToInstall: String = StrataModelCatalog.packs[0].name
     @State private var copied = false
 
-    init(settingsStore: SettingsStore, serverManager: ServerManager) {
+    init(settingsStore: SettingsStore, serverManager: ServerManager, draftState: SettingsDraftState) {
         self.settingsStore = settingsStore
         self.serverManager = serverManager
+        self.draftState = draftState
         let settings = settingsStore.settings
         _draft = State(initialValue: settings)
         _portText = State(initialValue: String(settings.port))
-        _contextIndex = State(initialValue: Double(ContextSteps.nearestIndex(to: settings.maxContext)))
     }
 
     private var saved: StrataSettings { settingsStore.settings }
-    private var isDirty: Bool { draft != saved }
+    /// A port field that does not parse is unapplied work too: it must be revertable and asked about.
+    private var isDirty: Bool { draft != saved || !portIsNumber }
     private var running: RunningInfo? { serverManager.state.runningInfo }
     private var installed: [InstalledModel] { StrataInstallation(root: draft.strataDirectoryURL).installedModels() }
     private var portIsNumber: Bool { Int(portText.trimmingCharacters(in: .whitespaces)) != nil }
@@ -48,12 +49,19 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 560)
         .background(WindowCloseGuard(isDirty: isDirty, discard: revert))
-        .onAppear(perform: checkInstallation)
+        .onAppear {
+            checkInstallation()
+            draftState.discard = { revert() }
+            draftState.isDirty = isDirty
+        }
+        .onDisappear {
+            draftState.isDirty = false
+        }
+        .onChange(of: isDirty) { _, dirty in
+            draftState.isDirty = dirty
+        }
         .onChange(of: draft.strataDirectory) { checkInstallation() }
         .onChange(of: draft.model) { checkInstallation() }
-        .onChange(of: contextIndex) { _, index in
-            draft.maxContext = ContextSteps.values[Int(index)]
-        }
         .onChange(of: portText) { _, text in
             if let port = Int(text.trimmingCharacters(in: .whitespaces)) {
                 draft.port = port
@@ -111,7 +119,7 @@ struct SettingsView: View {
             } maximumValueLabel: {
                 Text("\(memory.cacheRange.upperBound)")
             }
-            Slider(value: $contextIndex, in: 0...Double(ContextSteps.values.count - 1), step: 1) {
+            Slider(value: contextSlider, in: 0...Double(ContextSteps.values.count - 1), step: 1) {
                 Text("Context: \(draft.maxContext)")
             } minimumValueLabel: {
                 Text(String(ContextSteps.values[0]))
@@ -242,8 +250,17 @@ struct SettingsView: View {
 
     // MARK: - Draft handling
 
+    /// The slider position is derived from the draft, so that Revert can restore a saved context that is not a step.
+    private var contextSlider: Binding<Double> {
+        Binding(
+            get: { Double(ContextSteps.nearestIndex(to: draft.maxContext)) },
+            set: { draft.maxContext = ContextSteps.values[Int($0)] }
+        )
+    }
+
     private func apply() {
         guard isDirty, !hasErrors else { return }
+        draft.strataDirectory = draft.strataDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
         settingsStore.save(draft)
     }
 
@@ -254,7 +271,6 @@ struct SettingsView: View {
     private func load(_ settings: StrataSettings) {
         draft = settings
         portText = String(settings.port)
-        contextIndex = Double(ContextSteps.nearestIndex(to: settings.maxContext))
     }
 
     private func checkInstallation() {

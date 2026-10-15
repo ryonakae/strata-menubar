@@ -1,8 +1,32 @@
 import AppKit
 import SwiftUI
 
+/// The settings window's unapplied draft, shared with the app delegate so that quitting can ask about it too.
+@MainActor
+@Observable
+final class SettingsDraftState {
+    var isDirty = false
+    var discard: () -> Void = {}
+}
+
+/// The "Discard Changes / Keep Editing" alert; Keep Editing is the default button, discarding is marked destructive.
+enum UnappliedChangesAlert {
+    static func make(informativeText: String) -> NSAlert {
+        let alert = NSAlert()
+        alert.messageText = "Discard unapplied settings changes?"
+        alert.informativeText = informativeText
+        alert.addButton(withTitle: "Keep Editing")
+        let discard = alert.addButton(withTitle: "Discard Changes")
+        discard.hasDestructiveAction = true
+        return alert
+    }
+
+    static let discardResponse = NSApplication.ModalResponse.alertSecondButtonReturn
+}
+
 /// Asks before the hosting window closes on unsaved changes. It takes over the window's delegate only for
-/// `windowShouldClose` and forwards every other delegate call to whatever delegate SwiftUI installed.
+/// `windowShouldClose` and forwards every other delegate call to whatever delegate SwiftUI installed; the original
+/// delegate is put back when the view leaves the window.
 struct WindowCloseGuard: NSViewRepresentable {
     var isDirty: Bool
     var discard: () -> Void
@@ -32,13 +56,9 @@ struct WindowCloseGuard: NSViewRepresentable {
             guard isDirty else {
                 return original?.windowShouldClose?(sender) ?? true
             }
-            let alert = NSAlert()
-            alert.messageText = "Discard unsaved changes?"
-            alert.informativeText = "The settings you changed have not been applied. Close the window anyway?"
-            alert.addButton(withTitle: "Discard Changes")
-            alert.addButton(withTitle: "Keep Editing")
+            let alert = UnappliedChangesAlert.make(informativeText: "The settings you changed have not been applied. Close the window anyway?")
             alert.beginSheetModal(for: sender) { response in
-                guard response == .alertFirstButtonReturn else { return }
+                guard response == UnappliedChangesAlert.discardResponse else { return }
                 self.isDirty = false
                 self.discard()
                 sender.close()
@@ -57,6 +77,14 @@ struct WindowCloseGuard: NSViewRepresentable {
 
     final class GuardView: NSView {
         var coordinator: Coordinator?
+
+        override func viewWillMove(toWindow newWindow: NSWindow?) {
+            super.viewWillMove(toWindow: newWindow)
+            if newWindow == nil, let window, let coordinator, window.delegate === coordinator {
+                window.delegate = coordinator.original
+                coordinator.original = nil
+            }
+        }
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()

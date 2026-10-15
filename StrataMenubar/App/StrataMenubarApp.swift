@@ -18,7 +18,7 @@ struct StrataMenubarApp: App {
         .menuBarExtraStyle(.menu)
 
         Settings {
-            SettingsView(settingsStore: container.settingsStore, serverManager: container.serverManager)
+            SettingsView(settingsStore: container.settingsStore, serverManager: container.serverManager, draftState: container.settingsDraft)
         }
     }
 }

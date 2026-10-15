@@ -7,6 +7,7 @@ final class AppContainer {
 
     let paths = AppPaths.standard
     let settingsStore: SettingsStore
+    let settingsDraft = SettingsDraftState()
     let serverManager: ServerManager
 
     private init() {
