@@ -1,6 +1,6 @@
 # Idle Unload and Engine Switches Implementation Plan
 
-dig log: [docs/dig/2026-10-15-idle-unload-and-engine-switches.md](../dig/2026-10-15-idle-unload-and-engine-switches.md)（決定事項・対象外・撤回済みの正本。既定値の表とサーバー／エンジン側の挙動もここにある）
+dig log: [docs/dig/2026-10-15-idle-unload-and-engine-switches.md](../../dig/2026-10-15-idle-unload-and-engine-switches.md)（決定事項・対象外・撤回済みの正本。既定値の表とサーバー／エンジン側の挙動もここにある）
 
 ## Requirements
 
@@ -36,6 +36,11 @@ Strata の 5 項目（Idle unload、`fit_max_tokens`、`--spec N`、`STRATA_META
 
 Review base commit: `82646c6`。
 
+### Review log
+
+- Unit A（Task 1〜3、`82646c6..13cdc71`）: 独立レビュー（read-only agent）。blocking/high なし。decision required 1 件（`STRATA_METAL_STREAM` が "0" / "1" 以外のときの解釈）は Strata 本体の `metal/src/engine/stream.cpp` で「"1" → ストリーミング、"0" → 常駐、それ以外 → サイズで自動判定」と確認し、`baseFacts` の実装（"1" / "0" / それ以外は nil）と一致するため変更なし。未検証指摘「初回ロード中に idle タイマーが走るか」は `serve/server.py` で idle スレッドがエンジンの READY 後に起動し、最初の判定が N/4 秒（5 分なら 75 秒）後であることを確認。アプリの 1 秒間隔の readiness ポーリングは必ず `loaded: true` を見てから Running になる。
+- Unit B（Task 4〜5、`13cdc71..558eee5`）: 独立レビュー（read-only agent）。blocking/high なし。decision required 1 件: Auto のときの固定値 `expertCacheGB`、固定のときの `keepFreeGB` は run config に書かれないのに等値比較で「Saved settings differ」と「Stop and Apply」が出て、どの行にも「(running: X)」が付かない。ユーザー決定 A（有効な値で比べる）→ `d67491f`（`StrataSettings.effective`、メニューと設定画面の判定を `effective` 同士の比較に、テスト追加、README に一文、計画と dig log に記録）。検証: StrataSettingsTests 17 件、全体 test 79 件、build 警告なし。scoped re-review: 対象 finding 解消、新規 blocking/high なし、decision required なし。
+
 - [x] **設定モデルと保存**: `StrataMenubar/Settings/StrataSettings.swift`（新フィールド、段、検証）、新設 `StrataMenubar/Settings/EngineDefaults.swift`、`StrataMenubar/Settings/SettingsStore.swift`（新キーと既存ユーザーの固定扱い）を変更する。`StrataMenubarTests/StrataSettingsTests.swift`・`SettingsStoreTests.swift` に、既定値（Auto、nil、0、false）、各項目のエラー・警告（Keep free 7 未満、Spec 5 以上と `--mtp` なし、Prompt chunk の既定超え、base nil で base 依存の警告が出ないこと）、`EngineDefaults` の値（32 GiB: Keep free 7、chunk 1024 / 2048 / nil。128 GB: 20.6、4096）、保存の往復（nil を含む）、`autoExpertCache` 無し + `expertCacheGB` あり → 固定、両方無し → Auto、を足す。
   - 固定 cache の既存テストは `autoExpertCache = false` で動くように直す。`defaultsMatchThePlanAndPassValidation` は新しい既定に合わせる。
   - 実装: `BaseConfigFacts` の型は `StrataInstallation.swift` に置いた（読み取りは次のタスク）。`MemoryBudget` は bytes も保持し、`EngineDefaults.keepFreeGB` は 10 進 GB を小数 1 桁に丸める。
@@ -51,17 +56,24 @@ Review base commit: `82646c6`。
   - 検証: build 成功、警告なし。画面の確認は Final Validation。
 - [x] **ドキュメントと実機検証**: `README.md`（Use のサブメニュー記述を読み取り専用の表示に、Settings の表に Expert cache Auto / Keep free / Idle unload / Spec / Prompt chunk / Fit max tokens、管理キーの一覧、Limitations の「the MTP draft and every other engine option」を「画像入力と上記以外のエンジンオプション」に）、`AGENTS.md`（invariant を「settings change only in the settings window via Apply; the menu shows them」に）を更新する。`StrataMenubarTests/RealStrataIntegrationTests.swift` は既定設定（Auto）で起動して run config に `STRATA_METAL_ARENA_GB` が無いことを確認し、再起動側の `changed` に固定 5 GB・Idle unload 5 min・`fit_max_tokens` を加えて run config のキーと `server.log` の「the model unloads after 300」行を確認するように広げる。実 Strata に対して一度実行する。
   - 実装: README の冒頭・Use（状態表の Running、設定の読み取り専用表示）・Settings（表、警告の一覧、管理キーの段落）・Limitations を更新。AGENTS.md は Task 4 で更新済み。統合テストは `runConfig()` / `baseConfigEnv()` の補助で run config を読み、再起動側を固定 5 GB・Idle unload 5 min・fit_max_tokens で行う。
-  - 検証: 実 Strata 統合テスト成功（下記）。全体 build / test 78 件成功。
+  - 検証: 実 Strata 統合テスト成功（下記）。全体 build / test 78 件成功（修正 `d67491f` 後に 79 件で再実行）。
 
 ## Final Validation
 
 既存のコマンドをそのまま使う（Swift マクロの plugin server はサンドボックス内で動かないため、Herdr ペインなどサンドボックス外で実行する）。
 
 - [x] build: `xcodebuild -project StrataMenubar.xcodeproj -scheme StrataMenubar -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO build` → BUILD SUCCEEDED、警告なし（Task 4 の build と最終の test で確認）。
-- [x] test: 同じ指定で `test` → 全件成功。各タスクで足したテストと既存のライフサイクル・実プロセステストが通る。→ 78 件 / 11 スイート成功（opt-in の実 Strata 統合テストは通常実行ではスキップ）。Swift マクロの plugin server はサンドボックス内で動かないため、Herdr ペインで実行。
-- [x] 実 Strata 統合テスト（`StrataMenubar/Strata/` を触るため必須）: `.build/real-strata.json` に `{"strataDirectory": "/Users/ryo.nakae/Dev/local/Strata"}` を置き、`-only-testing:StrataMenubarTests/RealStrataIntegrationTests` → Auto で起動して loaded、run config に `STRATA_METAL_ARENA_GB` が無く `STRATA_METAL_STREAM` が base の値のまま、再起動後の run config に `STRATA_METAL_ARENA_GB: "5"`・`idle_unload_s: 300`・`fit_max_tokens: true`、`server.log` に「the model unloads after 300」、停止後に `pgrep -f serve/server.py` と `pgrep -f build-metal/strata` が空。終了後にファイルを削除し、`~/Dev/local/Strata/strata-q2_0.json` の SHA-256 が前後で一致。→ 成功（1 件、17 秒）。Auto で起動（約 3 秒で loaded、pong）、run config に `STRATA_METAL_ARENA_GB` なし・`STRATA_METAL_STREAM` は base の "1"。再起動（約 3 秒）後の run config に `STRATA_METAL_ARENA_GB: "5"`・`idle_unload_s: 300`・`fit_max_tokens: true`、server.log に「the model unloads after 300.0 s without requests」。停止後に `pgrep` は空、8080 は空き、Application Support には `strata-q2_0.run.json` のみ、SHA-256 は `38e43c6e…` で一致、opt-in ファイルは削除済み。
+- [x] test: 同じ指定で `test` → 全件成功。各タスクで足したテストと既存のライフサイクル・実プロセステストが通る。→ 最終 head（`d67491f`）で 79 件 / 11 スイート成功（opt-in の実 Strata 統合テストは通常実行ではスキップ）。Swift マクロの plugin server はサンドボックス内で動かないため、Herdr ペインで実行。
+- [x] 実 Strata 統合テスト（`StrataMenubar/Strata/` を触るため必須）: `.build/real-strata.json` に `{"strataDirectory": "/Users/ryo.nakae/Dev/local/Strata"}` を置き、`-only-testing:StrataMenubarTests/RealStrataIntegrationTests` → Auto で起動して loaded、run config に `STRATA_METAL_ARENA_GB` が無く `STRATA_METAL_STREAM` が base の値のまま、再起動後の run config に `STRATA_METAL_ARENA_GB: "5"`・`idle_unload_s: 300`・`fit_max_tokens: true`、`server.log` に「the model unloads after 300」、停止後に `pgrep -f serve/server.py` と `pgrep -f build-metal/strata` が空。終了後にファイルを削除し、`~/Dev/local/Strata/strata-q2_0.json` の SHA-256 が前後で一致。→ `558eee5` で成功（1 件、17 秒）。`d67491f` は Views と比較規則の変更だけで起動経路（`RunConfig` / planner / `ServerManager`）は不変のため再実行せず結果を再利用。Auto で起動（約 3 秒で loaded、pong）、run config に `STRATA_METAL_ARENA_GB` なし・`STRATA_METAL_STREAM` は base の "1"。再起動（約 3 秒）後の run config に `STRATA_METAL_ARENA_GB: "5"`・`idle_unload_s: 300`・`fit_max_tokens: true`、server.log に「the model unloads after 300.0 s without requests」。停止後に `pgrep` は空、8080 は空き、Application Support には `strata-q2_0.run.json` のみ、SHA-256 は `38e43c6e…` で一致、opt-in ファイルは削除済み。
   - 記録: Auto の起動では、同時に xcodebuild が走っていて macOS の空きが 9.3 GB しかなく、エンジンは 7.0 GB を残して arena を 1.8 GB にした（engine.log「only 1.8 GB left for the expert arena … expect a low hit rate」、プロンプト用バッファは別確保）。応答は正常。Auto は空きメモリに応じて縮む、という決定どおりの挙動だが、32 GiB でメモリを使う作業中は固定 5 GB より小さい arena になり得る。再起動側の arena 行は、ストリーミング arena が最初のリクエストで作られるため（再起動後はリクエストを送らない）engine.log に出ない。前回セッションと同じ。
 - [ ] 実機（GUI、エージェントのサンドボックスでステータス項目に到達できなければ未検証と明記してユーザー確認へ引き継ぐ）: メニューに「Settings for the next start」の行（Model / Expert cache: Auto / Context / Port / Idle unload: Never）が並び、サブメニューがない。行を押すと設定画面が開く。設定画面で Auto を切ると Keep free が無効化されスライダーが有効になり、Keep free に「(7 GB on this Mac)」、Prompt chunk に「Auto (1024 on this Mac)」、Spec に「As set up (2)」と `--mtp` なしの注記が出る。Idle unload を 5 min にして Apply and Restart し、5〜6 分放置すると状態行が「(model unloaded after idle; loads on the next request)」になり、アイコンが警告にならず、`pgrep -f build-metal/strata` が空で `serve/server.py` は生きている。Open Chat から質問すると再ロードして答え、状態行が元に戻る。Stop でサーバーが止まる。→ **未検証（ユーザー確認へ引き継ぎ）**。cua-driver でアプリを起動（pid 10358、Dock 非表示、ウィンドウなし）したが、ステータス項目のメニューと設定画面はデスクトップ入力なしに開けず、前回と同じく操作していない。起動したアプリは確認用に残置。
 - [x] `git diff --check` と差分確認 → モデル・ログ・生成設定・ビルド成果物が追跡対象に混入せず、Strata 本体に変更がない。→ 各 commit で `git diff --check --cached` clean。追跡対象はソース・テスト・README・AGENTS.md・docs のみ。Strata の `strata-q2_0.json` は SHA-256 一致。
 
 > 各タスクは対応する検証が成功してから完了にする。実装中の軽微な差分と検証結果は該当箇所へ反映し、要件、対象外、公開契約の変更はユーザーへ確認する。最終確認では有効な検証結果を再利用し、計画と実際の変更が一致することを確認する。必要な検証と実装側の必須レビューが通ったら、計画を同名のまま `docs/plans/archived/` へ移す。
+
+## Gate summary
+
+- Review 対象 commit: `82646c6..d67491f`（d3a8370, c342fa3, 13cdc71, 001b061, 558eee5, d67491f）。
+- 独立レビュー: Unit A / Unit B とも blocking/high なし。decision required 2 件のうち 1 件は Strata 本体の事実で解消（変更なし）、1 件はユーザー決定 A → `d67491f` → scoped re-review でクローズ。未解決の blocking/high・decision required: なし。
+- 残した medium/low（修正せず報告）: 統合テストの `server.log` 判定が過去の実行の行でも成立する。README に「The new model then appears in the Model menu.」が残る。README の管理キー段落の `STRATA_METAL_KEEP_FREE_GB … when set` は固定時に不正確。`SettingsView` の `onChange(of: settingsStore.settings)` は保存元が Apply だけになり到達不能。`--mtp` なしの注記が Engine セクションと検証の警告で二重に出る。Model 行の差分は tag ではなく表示名で比べる。`SettingsStore` の「deliberate fixed size」コメントは過大（一度でも保存した既存ユーザーは全員固定のまま）。AGENTS.md の `EngineDefaults`「computed for display」は警告判定にも使うため不正確。`StrataSettingsTests` の段の一覧テストは定数同士の比較。ServerManagerTests に idle unload 付きで `health == .ok` の肯定側がない。`strataDirectory` だけが違う場合は行がないため「differ」の理由が行に出ない（以前からの挙動）。`effective` の docstring は「比較のための正規化」と書くほうが誤用を防ぐ。
+- Final validation: build / test（79 件、`d67491f`）成功、実 Strata 統合テスト（`558eee5`）成功、`git diff --check` clean、Strata の `strata-q2_0.json` は SHA-256 一致、作業ツリーに残置なし。GUI（メニューの読み取り専用の行、設定画面のセクションとトグル、idle unload の表示と再ロード）は未検証のままユーザー確認へ引き継ぎ。起動したアプリ（pid 10358、`.build/DerivedData/Build/Products/Debug/StrataMenubar.app`）は確認用に残置。
