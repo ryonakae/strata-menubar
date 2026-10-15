@@ -35,8 +35,8 @@ open .build/DerivedData/Build/Products/Debug/StrataMenubar.app
 
 - `StrataMenubar/App/`: `StrataMenubarApp` (MenuBarExtra + Settings scene), `AppDelegate` (quit
   confirmation), `AppContainer` (wires the real dependencies once).
-- `StrataMenubar/Settings/`: `StrataSettings` (values, validation, `MemoryBudget`, `ContextSteps`),
-  `SettingsStore` (UserDefaults).
+- `StrataMenubar/Settings/`: `StrataSettings` (values, validation, `MemoryBudget`, the step lists),
+  `EngineDefaults` (what the engine picks when a value is unset, computed for display), `SettingsStore` (UserDefaults).
 - `StrataMenubar/Strata/`: everything that touches Strata. `StrataInstallation` (installed
   `strata-<tag>.json`, checks), `RunConfig` + `LaunchPlan` (run config and spawn plan), `PosixProcessLauncher`
   (posix_spawn in a new process group), `HealthProbe`, `ServerManager` (the state machine), `StrataModelCatalog`.

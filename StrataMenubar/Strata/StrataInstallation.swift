@@ -104,3 +104,14 @@ struct StrataInstallation: Equatable, Sendable {
         return problems
     }
 }
+
+/// What the selected model's base config already says, for the settings that keep or build on it.
+struct BaseConfigFacts: Equatable, Sendable {
+    /// The `--spec` setup wrote, if any.
+    var specWindow: Int?
+    /// Whether the config names an MTP draft layer (`--mtp`); without one `--spec` does nothing.
+    var hasMTP: Bool
+    /// `STRATA_METAL_STREAM` in the config's env: true streams the experts, false keeps them resident, nil lets the
+    /// engine decide by the model's size.
+    var streaming: Bool?
+}
