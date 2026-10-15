@@ -29,18 +29,8 @@ No Apple developer account is needed; the binary is ad-hoc signed. Start it from
 Finder or with `open .build/DerivedData/Build/Products/Debug/StrataMenubar.app`.
 It shows an icon in the menu bar and nothing in the Dock.
 
-Run the unit tests with the same command and `test` instead of `build`.
-
-One test, `RealStrataIntegrationTests`, drives the real Strata installation
-through the app's own components (start, answer, restart with a smaller
-context, stop). It is skipped unless `.build/real-strata.json` exists; create
-that file to run it: `{}` uses the default Strata directory,
-`{"strataDirectory": "/path/to/Strata"}` names another checkout, and
-`"continueDir": "/some/dir"` makes the test pause while the server is up. It
-loads the model, writes the app's
-real run config and logs under `~/Library`, and takes a few minutes. If it
-fails before its final stop it tries to stop the server it started; check the
-menu bar app or `pgrep -f serve/server.py` afterwards.
+Tests, project layout and the rules for changing the code are in
+[AGENTS.md](AGENTS.md).
 
 ## Use
 

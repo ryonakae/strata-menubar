@@ -1,0 +1,74 @@
+# AGENTS.md
+
+macOS menu bar app (Swift 6, SwiftUI, macOS 15+, no dependencies) that starts, stops and configures a
+locally installed Strata LLM server. `README.md` describes the behaviour users see; this file is for
+working on the code. `CLAUDE.md` is a symlink to this file.
+
+## Commands
+
+Build and test with xcodebuild only; there is no package manager or script layer.
+
+```sh
+xcodebuild -project StrataMenubar.xcodeproj -scheme StrataMenubar -configuration Debug \
+  -destination 'platform=macOS' -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project StrataMenubar.xcodeproj -scheme StrataMenubar -configuration Debug \
+  -destination 'platform=macOS' -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO test
+open .build/DerivedData/Build/Products/Debug/StrataMenubar.app
+```
+
+- Swift macros (`@Observable`, `@Test`, `#expect`) need the compiler's plugin server, which runs its own
+  `sandbox-exec`. Inside a sandbox that forbids nested sandboxing the build fails with
+  `swift-plugin-server produced malformed response`; run xcodebuild outside it.
+- `-only-testing:StrataMenubarTests/<Suite>` narrows a test run. Add `.build/real-strata.json` (`{}`,
+  or `{"strataDirectory": "/path/to/Strata"}`) to enable `RealStrataIntegrationTests`, which starts the
+  real server through the app's own components; remove the file afterwards.
+- Nothing is linted or formatted automatically; the compiler must stay warning-free.
+
+## Validation before a commit
+
+1. `build` and `test` succeed with no compiler warnings.
+2. After touching `StrataMenubar/Strata/`: run `RealStrataIntegrationTests` once against a real
+   checkout and confirm `pgrep -f serve/server.py` is empty afterwards.
+3. `git diff --check` is clean; no logs, run configs, models or `.build/` output are tracked.
+
+## Layout
+
+- `StrataMenubar/App/`: `StrataMenubarApp` (MenuBarExtra + Settings scene), `AppDelegate` (quit
+  confirmation), `AppContainer` (wires the real dependencies once).
+- `StrataMenubar/Settings/`: `StrataSettings` (values, validation, `MemoryBudget`, `ContextSteps`),
+  `SettingsStore` (UserDefaults).
+- `StrataMenubar/Strata/`: everything that touches Strata. `StrataInstallation` (installed
+  `strata-<tag>.json`, checks), `RunConfig` + `LaunchPlan` (run config and spawn plan), `PosixProcessLauncher`
+  (posix_spawn in a new process group), `HealthProbe`, `ServerManager` (the state machine), `StrataModelCatalog`.
+- `StrataMenubar/Views/`: `MenuContent` (the menu), `SettingsView` (draft + Apply), `WindowCloseGuard`.
+- `StrataMenubarTests/`: Swift Testing suites; `Support/Fakes.swift` (fake launcher, process, probe,
+  planner) and `Support/TestInstallation.swift` (a throwaway Strata layout on disk).
+- `docs/plans/archived/`: implementation plans with the decisions and validation records.
+  `docs/dig/`: the question-and-answer logs behind them. Read these before changing a decision.
+- The Xcode project uses synchronized folders: a new file under `StrataMenubar/` or
+  `StrataMenubarTests/` is picked up without editing `project.pbxproj`.
+
+## Invariants
+
+These are the contract with the user; a change needs a new plan, not a quiet edit.
+
+- Never write into the Strata checkout, its model files or any client's configuration. The run config
+  goes to `~/Library/Application Support/StrataMenubar/`, logs to `~/Library/Logs/StrataMenubar/`.
+- Signal only the process group the app spawned. A Strata server it did not start is shown as external
+  and never stopped; a stop that fails keeps ownership and blocks a restart.
+- The server listens on `127.0.0.1` only.
+- Saved settings apply at the next start. Nothing restarts the server except the explicit
+  "Stop and Apply" / "Apply and Restart" actions; the menu saves at once, the settings window via Apply.
+- No automatic restart loops, no adoption of leftover processes, no installing or running Strata's setup.
+
+## Conventions
+
+- Swift 6 language mode with strict concurrency: UI and `ServerManager` are `@MainActor`; anything
+  crossing threads is `Sendable` or `@unchecked Sendable` with a lock.
+- Keep the design testable through the existing seams: `ProcessLaunching`, `HealthProbing`,
+  `LaunchPlanning`. Lifecycle behaviour is tested with the fakes; process ownership with real
+  `/bin/sh` fixtures in `PosixProcessLauncherTests`.
+- Views have no unit tests; verify UI changes by running the app.
+- Comments explain why, not what. Comments, docs and commits are English. Commit messages follow
+  Conventional Commits (`feat:`, `fix:`, `docs:`, ...); never amend, rebase or force-push shared history.
+- Keep `README.md` user-facing (behaviour, settings, limitations) and this file agent-facing.
