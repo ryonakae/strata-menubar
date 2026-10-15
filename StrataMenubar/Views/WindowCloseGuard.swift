@@ -9,6 +9,7 @@ final class SettingsDraftState {
 }
 
 /// The "Discard Changes / Keep Editing" alert; Keep Editing answers both Return and Escape, discarding is destructive.
+@MainActor
 enum UnappliedChangesAlert {
     static func make(informativeText: String) -> NSAlert {
         let alert = NSAlert()
