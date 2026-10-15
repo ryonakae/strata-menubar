@@ -53,6 +53,11 @@ struct RealStrataIntegrationTests {
         #expect(first.maxContext == 8192)
         #expect(first.settings == settings)
         #expect(await URLSessionHealthProbe().probe(port: 8080) == .strata(StrataHealth(loaded: true, model: Self.modelName, maxContext: 8192)))
+        // The default cache is automatic: the engine sizes the arena, and the streaming choice stays the base config's.
+        let baseEnv = try baseConfigEnv(settings)
+        let firstEnv = try runConfig()["env"] as? [String: String] ?? [:]
+        #expect(firstEnv["STRATA_METAL_ARENA_GB"] == nil)
+        #expect(firstEnv["STRATA_METAL_STREAM"] == baseEnv["STRATA_METAL_STREAM"])
 
         let answer = try await ask("Reply with the single word: pong", port: 8080)
         note("answer: \(answer)")
@@ -72,7 +77,11 @@ struct RealStrataIntegrationTests {
         #expect(manager.state.runningInfo?.settings == settings)
         #expect(await URLSessionHealthProbe().probe(port: 8080) == .strata(StrataHealth(loaded: true, model: Self.modelName, maxContext: 8192)))
 
-        let changed = saved
+        var changed = saved
+        changed.autoExpertCache = false
+        changed.expertCacheGB = 5
+        changed.idleUnloadMinutes = 5
+        changed.fitMaxTokens = true
         let restarted = ContinuousClock.now
         await manager.restart(settings: changed)
         #expect(await waitUntil(timeout: Self.loadTimeout) { manager.state.isRunning || manager.state.isFailed })
@@ -83,6 +92,13 @@ struct RealStrataIntegrationTests {
         #expect(second.settings == changed)
         #expect(!isAlive(first.pid))
         #expect(!isGroupAlive(first.pid))
+        let secondConfig = try runConfig()
+        #expect((secondConfig["env"] as? [String: String])?["STRATA_METAL_ARENA_GB"] == "5")
+        #expect(secondConfig["idle_unload_s"] as? Int == 300)
+        #expect(secondConfig["fit_max_tokens"] as? Bool == true)
+        // The server announces the idle unload it was configured with; waiting for the unload itself is a manual check.
+        let serverLog = try String(contentsOf: AppPaths.standard.serverLog, encoding: .utf8)
+        #expect(serverLog.contains("the model unloads after 300"))
         await pause("running-2")
 
         await manager.stop()
@@ -92,6 +108,16 @@ struct RealStrataIntegrationTests {
         #expect(!isGroupAlive(second.pid))
         #expect(await URLSessionHealthProbe().probe(port: 8080) == .unreachable)
         note("memory after stop:\n\(memoryReport())")
+    }
+
+    private func runConfig() throws -> [String: Any] {
+        try #require(JSONSerialization.jsonObject(with: Data(contentsOf: AppPaths.standard.runConfig(for: "q2_0"))) as? [String: Any])
+    }
+
+    private func baseConfigEnv(_ settings: StrataSettings) throws -> [String: String] {
+        let url = StrataInstallation(root: settings.strataDirectoryURL).configURL(for: "q2_0")
+        let object = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        return object["env"] as? [String: String] ?? [:]
     }
 
     private func ask(_ question: String, port: Int) async throws -> String {

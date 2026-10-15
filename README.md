@@ -2,8 +2,8 @@
 
 A small macOS menu bar app that starts and stops a locally installed
 [Strata](https://github.com/Niko1221/Strata) server running Qwen3.8-Flash-Next,
-lets you pick which installed model to run, and changes its memory-related
-settings. It replaces the terminal pane you would otherwise keep open for
+lets you pick which installed model to run, and changes its memory, idle-unload
+and engine settings. It replaces the terminal pane you would otherwise keep open for
 `run-<model>.sh`; once the server is up, clients use it as before.
 
 The app does not install, update or edit Strata or its model files. It needs a
@@ -40,18 +40,20 @@ The menu shows one of these states:
 | --- | --- |
 | Stopped | No Strata server is known on the configured port. The app only looks for Strata; another service holding the port is reported when you press Start. |
 | Starting | The server this app started is loading the model. |
-| Running | `/health` reports the model as loaded; the line shows model, context and port. |
+| Running | `/health` reports the model as loaded; the line shows model, context and port. On a server started with idle unload, an unloaded model is shown as "(model unloaded after idle; loads on the next request)" with a moon icon, because the server does not say whether it is idle or loading again. |
 | Stopping | The server and its engine are shutting down. |
 | External Strata | A Strata server somebody else started is listening on the port. The app never stops it. |
 | Error | A launch or a stop failed, the server exited on its own, or the port is held by something that is not Strata; the message says what to look at. A failing health check of a running server is shown on the Running line instead. |
 
 Actions:
 
-- **Model**, **Expert cache** and **Context** are submenus of the saved
-  settings. Picking a value saves it at once; it applies at the next start. A
-  running server keeps the values it was started with until you choose **Stop
-  and Apply Saved Settings**. The Model submenu lists the `strata-<model>.json`
-  files in the Strata directory by their model name.
+- **Settings for the next start** lists the saved values read-only: model,
+  expert cache (Auto or a fixed size), context, port and idle unload always; the
+  kept memory, verify window, prompt chunk and fit max_tokens only when they are
+  not left to the engine or to setup. A row whose value differs from the running
+  server's adds "(running: …)". Any row opens the settings window; the menu
+  itself changes nothing. A running server keeps the values it was started with
+  until you choose **Stop and Apply Saved Settings**.
 - **Start Server** starts `serve/server.py` with the saved settings, bound to
   `127.0.0.1` only. The server and the Metal engine it spawns run in their own
   process group owned by the app.
@@ -79,24 +81,33 @@ the sliders, the model picker or the text fields, then press **Apply** to save
 (it is disabled while a value is invalid) or **Revert** to go back to the
 saved values. Closing the window or quitting the app with unapplied changes
 asks whether to discard them (Keep Editing is the default answer). The menu
-bar's submenus, by contrast, save at once.
+bar only lists the saved values.
 
 | Setting | Default | Notes |
 | --- | --- | --- |
 | Strata directory | `~/Strata` | Must contain a finished setup. The window lists what is missing. |
 | Model | `q2_0`, else the first installed | One of the `strata-<model>.json` files in the Strata directory. |
-| Expert cache (GB) | 5 | `STRATA_METAL_ARENA_GB`, in decimal GB. Slider from 1 GB to the Mac's physical memory in 1 GB steps. |
+| Expert cache | Auto | With the toggle on, the engine sizes the expert arena itself and `STRATA_METAL_ARENA_GB` is not written. With it off, the slider sets a fixed size in decimal GB, from 1 GB to the Mac's physical memory in 1 GB steps (5 GB when first switched). A cache saved by an earlier version of this app stays fixed. |
+| Keep free for macOS | Engine default | `STRATA_METAL_KEEP_FREE_GB`, only with an automatic cache: what the engine leaves to macOS while it sizes the arena. The engine's own rule is 7 GB or 15% of the RAM, whichever is more; the window shows that number for this Mac. 1 GB steps. |
 | Context (tokens) | 8192 | `--max-context` for the engine. Slider over 1024, 2048, 4096, 8192, 16384 and 32768. |
+| Prompt chunk | Auto | `STRATA_METAL_PROMPT_CHUNK`: 1024, 2048, 4096 or 8192 tokens. Auto is the engine's choice: 2048 for a resident model and, when the experts stream, 4096 from 96 GiB of RAM and 1024 below; the window shows the number for this Mac. |
 | Port | 8080 | Must be between 1024 and 65535; an invalid entry keeps the previous value. |
+| Idle unload | Never | `idle_unload_s`: 5, 10, 15, 30, 60 or 120 minutes without requests, after which the server ends the engine process and starts it again for the next request. |
+| Fit max_tokens | off | `fit_max_tokens`: clamp a request's max_tokens to the remaining context instead of answering 400. A prompt that is itself longer than the context is still rejected. |
+| Verify window | As set up | `--spec`, 2 to 8: how many tokens the MTP drafter proposes per check. "As set up" keeps what setup wrote (2, or 3 for a streaming Mac that keeps the draft layer). Without an MTP draft layer (`--mtp`) in the model's config the value has no effect; the window says so. |
 
-The expert cache is only the arena the engine keeps the most-used experts in.
-It is not a limit on Strata's total memory: with a 5 GB cache the engine's
+A fixed expert cache is only the arena the engine keeps the most-used experts
+in. It is not a limit on Strata's total memory: with a 5 GB cache the engine's
 footprint was about 13 GB after start on an M-series Mac with 32 GiB. A fixed
-value is never shrunk automatically when memory runs short. Any value in the
-slider's range is accepted; the app only warns, with the reason, for caches
-under 2 GB (the engine needs about 1.36 GB of the arena for a prompt's buffers
-and failed at about 0.8 GB) or over half of the Mac's memory, and for contexts
-over 8192 (untested, more memory).
+value is never shrunk automatically when memory runs short; an automatic one is
+sized from what macOS can give and filled in steps. Any value in the offered
+range is accepted; the app only warns, with the reason, for fixed caches under
+2 GB (the engine needs about 1.36 GB of the arena for a prompt's buffers and
+failed at about 0.8 GB) or over half of the Mac's memory, for contexts over
+8192 (untested, more memory), for keeping less than 7 GB for macOS (a 34-minute
+run that kept 5 GB swapped out 93 MB while the arena filled), for verify windows
+of 5 or more (measured slower) and for prompt chunks above this Mac's default on
+a streaming model (their buffers come out of the arena: 4.3 GB at 4096).
 
 Settings are saved in the app's user defaults and apply at the next start.
 While a server is running, the window shows the settings it was started with.
@@ -108,10 +119,14 @@ server is not stopped for a launch that cannot succeed. The app never restarts
 the server on its own.
 
 At each start the app reads the selected model's `strata-<model>.json` from the
-Strata directory and writes a copy with only the managed keys changed
-(`--max-context`, `STRATA_METAL_ARENA_GB`, `STRATA_METAL_STREAM=1` when the
-base has no such key, the engine log path and the port) to
-`~/Library/Application Support/StrataMenubar/strata-<model>.run.json`. The
+Strata directory and writes a copy with only the managed keys changed to
+`~/Library/Application Support/StrataMenubar/strata-<model>.run.json`: the
+`--max-context` argument; `--spec` when the verify window is changed;
+`STRATA_METAL_ARENA_GB` for a fixed cache; `STRATA_METAL_KEEP_FREE_GB` and
+`STRATA_METAL_PROMPT_CHUNK` when set; `idle_unload_s` unless Never;
+`fit_max_tokens` when on; the engine log path and the port. A managed key whose
+setting is left to the engine is removed even when the base config carries it;
+everything else, `STRATA_METAL_STREAM` included, is copied as it is. The
 original file, `run-<model>.sh` and the model files are never modified.
 
 ### Installing another model
@@ -141,7 +156,8 @@ yourself; the app does not touch their configuration.
 ## Limitations
 
 - Only models that Strata's setup has already installed; image input, the MTP
-  draft and every other engine option stay as the model's base config has them.
+  draft layer and every engine option not listed above stay as the model's base
+  config has them.
 - No login item, launchd service, LAN access, authentication, signing or
   notarisation.
 - A server left over from an app crash is shown as "External Strata" and is not
