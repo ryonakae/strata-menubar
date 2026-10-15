@@ -4,9 +4,9 @@ import Testing
 
 /// Drives the real Strata installation through the same components the app uses. It is skipped unless
 /// `.build/real-strata.json` exists in the repository (environment variables do not reach app-hosted tests): it loads
-/// the model, which takes minutes and about 10 GB, and uses the app's real log and config locations. An optional
-/// `"continueDir"` in that file names a directory where the test waits for `<phase>.continue` while the server is
-/// up, so an operator can inspect it from outside.
+/// the model, which takes minutes and about 10 GB, and uses the app's real log and config locations. The file may
+/// name the checkout as `"strataDirectory"` (default: the app's default directory) and a `"continueDir"` where the
+/// test waits for `<phase>.continue` while the server is up, so an operator can inspect it from outside.
 @MainActor
 struct RealStrataIntegrationTests {
     private nonisolated static let optIn: [String: String]? = {
@@ -16,6 +16,7 @@ struct RealStrataIntegrationTests {
     }()
     private nonisolated static var enabled: Bool { optIn != nil }
     private nonisolated static var continueDirectory: URL? { optIn?["continueDir"].map { URL(filePath: $0) } }
+    private nonisolated static var strataDirectory: String? { optIn?["strataDirectory"] }
     private nonisolated static let loadTimeout: Duration = .seconds(900)
     private nonisolated static let modelName = "qwen3.8-flash-next-q2_0"
 
@@ -36,7 +37,10 @@ struct RealStrataIntegrationTests {
     }
 
     private func exercise(_ manager: ServerManager) async throws {
-        let settings = StrataSettings.default
+        var settings = StrataSettings.default
+        if let directory = Self.strataDirectory {
+            settings.strataDirectory = directory
+        }
         note("memory before start:\n\(memoryReport())")
 
         let started = ContinuousClock.now

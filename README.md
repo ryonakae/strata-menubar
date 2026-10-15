@@ -4,8 +4,7 @@ A small macOS menu bar app that starts and stops a locally installed
 [Strata](https://github.com/Niko1221/Strata) server running Qwen3.8-Flash-Next,
 lets you pick which installed model to run, and changes its memory-related
 settings. It replaces the terminal pane you would otherwise keep open for
-`run-<model>.sh`; once the server is up, clients such as
-[Pi](https://github.com/badlogic/pi-mono) use it as before.
+`run-<model>.sh`; once the server is up, clients use it as before.
 
 The app does not install, update or edit Strata or its model files. It needs a
 finished Strata setup and starts whichever `strata-<model>.json` setup wrote.
@@ -15,7 +14,7 @@ finished Strata setup and starts whichever `strata-<model>.json` setup wrote.
 - macOS 15 or newer on Apple Silicon
 - Xcode 16 or newer to build (Xcode 27 was used)
 - A working Strata checkout with at least one model set up by `setup.sh`, by
-  default at `~/Dev/local/Strata`, containing `.venv/bin/python`,
+  default at `~/Strata`, containing `.venv/bin/python`,
   `serve/server.py` and a `strata-<model>.json` (for example `strata-q2_0.json`)
 
 ## Build
@@ -35,8 +34,10 @@ Run the unit tests with the same command and `test` instead of `build`.
 One test, `RealStrataIntegrationTests`, drives the real Strata installation
 through the app's own components (start, answer, restart with a smaller
 context, stop). It is skipped unless `.build/real-strata.json` exists; create
-that file (`{}` is enough, or `{"continueDir": "/some/dir"}` to have the test
-pause while the server is up) to run it. It loads the model, writes the app's
+that file to run it: `{}` uses the default Strata directory,
+`{"strataDirectory": "/path/to/Strata"}` names another checkout, and
+`"continueDir": "/some/dir"` makes the test pause while the server is up. It
+loads the model, writes the app's
 real run config and logs under `~/Library`, and takes a few minutes. If it
 fails before its final stop it tries to stop the server it started; check the
 menu bar app or `pgrep -f serve/server.py` afterwards.
@@ -92,7 +93,7 @@ bar's submenus, by contrast, save at once.
 
 | Setting | Default | Notes |
 | --- | --- | --- |
-| Strata directory | `~/Dev/local/Strata` | Must contain a finished setup. The window lists what is missing. |
+| Strata directory | `~/Strata` | Must contain a finished setup. The window lists what is missing. |
 | Model | `q2_0`, else the first installed | One of the `strata-<model>.json` files in the Strata directory. |
 | Expert cache (GB) | 5 | `STRATA_METAL_ARENA_GB`, in decimal GB. Slider from 1 GB to the Mac's physical memory in 1 GB steps. |
 | Context (tokens) | 8192 | `--max-context` for the engine. Slider over 1024, 2048, 4096, 8192, 16384 and 32768. |
@@ -101,13 +102,11 @@ bar's submenus, by contrast, save at once.
 The expert cache is only the arena the engine keeps the most-used experts in.
 It is not a limit on Strata's total memory: with a 5 GB cache the engine's
 footprint was about 13 GB after start on an M-series Mac with 32 GiB. A fixed
-value is never shrunk automatically when memory runs short, and "about 16 GB
-overall" is an operating goal, not something the app enforces. Any value in
-the slider's range is accepted; the app only warns, with the reason, for caches
+value is never shrunk automatically when memory runs short. Any value in the
+slider's range is accepted; the app only warns, with the reason, for caches
 under 2 GB (the engine needs about 1.36 GB of the arena for a prompt's buffers
 and failed at about 0.8 GB) or over half of the Mac's memory, and for contexts
-over 8192 (untested here, more memory) or under 2048 (Pi's maxTokens does not
-fit).
+over 8192 (untested, more memory).
 
 Settings are saved in the app's user defaults and apply at the next start.
 While a server is running, the window shows the settings it was started with.
@@ -142,27 +141,12 @@ writes `strata-<model>.json`; `--no-start` keeps it from starting a server of
 its own. The new model then appears in the Model menu. The app never runs
 setup.
 
-### Pi
+### Clients
 
-Pi reads this server through its `strata` provider entry in
-`~/Dev/local/.pi/models.json` (`http://127.0.0.1:8080/v1`, `contextWindow`
-8192, `maxTokens` 2048, model id `qwen3.8-flash-next-q2_0`). After changing
-the port, the context or the model here, edit that file by hand; the model id
-must equal the server's model name (what `/v1/models` reports). The app does
-not touch Pi's configuration.
-
-With the 8192 context, Pi's default coding system prompt plus its built-in
-tools did not fit: the server answered 400 because the prompt alone was 8,326
-tokens. A short question worked with tools off and a small system prompt, for
-example:
-
-```sh
-pi -p --no-tools --system-prompt "You are a terse assistant." \
-  --provider strata --model qwen3.8-flash-next-q2_0 "Reply with the single word: pong"
-```
-
-If your Pi configuration lives outside the default `~/.pi/agent`, point
-`PI_CODING_AGENT_DIR` at it first (here: `~/Dev/local/.pi`).
+Clients reach the server at `http://127.0.0.1:<port>/v1` and address the model
+by the name `/v1/models` reports (`qwen3.8-flash-next-q2_0` for the Q2_0
+pack). After changing the port or the model here, update your clients
+yourself; the app does not touch their configuration.
 
 ## Limitations
 

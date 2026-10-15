@@ -130,9 +130,9 @@ struct SettingsView: View {
                 issueLabel(issue.message, isError: issue.severity == .error)
             }
             Text("The expert cache (STRATA_METAL_ARENA_GB) is only the arena for the most-used experts, not a limit on Strata's "
-                + "total memory: on this Mac a 5 GB cache gave the engine a footprint of about 13 GB at start. A fixed value is "
-                + "never shrunk automatically when memory runs short. \"About 16 GB overall\" is an operating goal, not a limit "
-                + "this app enforces. Values are saved as you set them; warnings only say what has not worked here.")
+                + "total memory: on a 32 GiB Mac a 5 GB cache gave the engine a footprint of about 13 GB at start. A fixed value is "
+                + "never shrunk automatically when memory runs short. Values are saved as you set them; warnings only say what "
+                + "has not worked.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -161,9 +161,8 @@ struct SettingsView: View {
                 Text("Not running. Saved settings apply at the next start.")
                     .foregroundStyle(.secondary)
             }
-            Text("Pi reads this server at http://127.0.0.1:\(String(draft.port))/v1 with contextWindow 8192 in "
-                + "~/Dev/local/.pi/models.json, and the model id there must equal the server's model name (what /v1/models "
-                + "reports). After changing the port, the context or the model, edit that file by hand; this app never touches it.")
+            Text("Clients reach the server at http://127.0.0.1:\(String(draft.port))/v1 and address the model by the name "
+                + "/v1/models reports. After changing the port or the model, update them yourself; this app does not touch them.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }

@@ -28,7 +28,7 @@ struct StrataModelCatalogTests {
     @Test func buildsTheSetupCommandWithAQuotedDirectory() {
         let command = SetupCommand.make(strataDirectory: "/Users/x/Dev local/Str\"ata", model: "IQ3_XXS")
         #expect(command == "cd \"/Users/x/Dev local/Str\\\"ata\" && ./setup.sh --setup --model IQ3_XXS --no-start")
-        #expect(SetupCommand.make(strataDirectory: "~/Dev/local/Strata", model: "Q2_0") == "cd \"\(NSHomeDirectory())/Dev/local/Strata\" && ./setup.sh --setup --model Q2_0 --no-start")
+        #expect(SetupCommand.make(strataDirectory: "~/Strata", model: "Q2_0") == "cd \"\(NSHomeDirectory())/Strata\" && ./setup.sh --setup --model Q2_0 --no-start")
         #expect(SetupCommand.make(strataDirectory: "/a\\b", model: "Q2_0") == "cd \"/a\\\\b\" && ./setup.sh --setup --model Q2_0 --no-start")
     }
 }

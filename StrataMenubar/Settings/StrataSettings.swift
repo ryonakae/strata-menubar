@@ -10,7 +10,7 @@ struct StrataSettings: Equatable, Codable, Sendable {
     var port: Int
 
     static let `default` = StrataSettings(
-        strataDirectory: "~/Dev/local/Strata",
+        strataDirectory: "~/Strata",
         model: "q2_0",
         expertCacheGB: 5,
         maxContext: 8192,
@@ -50,13 +50,7 @@ struct StrataSettings: Equatable, Codable, Sendable {
         if maxContext <= 0 {
             issues.append(.error("The context must be a positive number of tokens."))
         } else if maxContext > 8192 {
-            issues.append(.warning(
-                "Contexts over 8192 are untested here and raise memory use. Update contextWindow in Pi's models.json to match."
-            ))
-        } else if maxContext < 2048 {
-            issues.append(.warning(
-                "Contexts under 2048 cannot hold a reply of Pi's maxTokens (2048). Update Pi's models.json to match."
-            ))
+            issues.append(.warning("Contexts over 8192 are untested here and raise memory use."))
         }
         if !(1024...65535).contains(port) {
             issues.append(.error("The port must be between 1024 and 65535."))

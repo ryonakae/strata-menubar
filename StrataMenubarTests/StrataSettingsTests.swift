@@ -15,7 +15,7 @@ struct StrataSettingsTests {
 
     @Test func defaultsMatchThePlanAndPassValidation() {
         let settings = StrataSettings.default
-        #expect(settings.strataDirectory == "~/Dev/local/Strata")
+        #expect(settings.strataDirectory == "~/Strata")
         #expect(settings.model == "q2_0")
         #expect(settings.expertCacheGB == 5)
         #expect(settings.maxContext == 8192)
@@ -24,7 +24,7 @@ struct StrataSettingsTests {
     }
 
     @Test func expandsTheTildeInTheStrataDirectory() {
-        #expect(StrataSettings.default.strataDirectoryURL.path(percentEncoded: false) == NSHomeDirectory() + "/Dev/local/Strata")
+        #expect(StrataSettings.default.strataDirectoryURL.path(percentEncoded: false) == NSHomeDirectory() + "/Strata")
     }
 
     @Test func derivesTheCacheRangeAndWarningFromPhysicalMemory() {
@@ -73,7 +73,7 @@ struct StrataSettingsTests {
         #expect(errors(settings).count == 1)
     }
 
-    @Test func warnsAboutContextsThatDifferFromTheTestedOne() {
+    @Test func warnsAboutContextsAboveTheTestedOneOnly() {
         var large = StrataSettings.default
         large.maxContext = 16384
         #expect(errors(large).isEmpty)
@@ -81,8 +81,7 @@ struct StrataSettingsTests {
 
         var small = StrataSettings.default
         small.maxContext = 1024
-        #expect(errors(small).isEmpty)
-        #expect(warnings(small).count == 1)
+        #expect(small.validate(memory: memory).isEmpty)
     }
 
     @Test(arguments: [0, 80, 1023, 65536])
