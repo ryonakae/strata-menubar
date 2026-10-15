@@ -8,15 +8,14 @@ final class SettingsDraftState {
     var isDirty = false
 }
 
-/// The "Discard Changes / Keep Editing" alert; Keep Editing answers both Return and Escape, discarding is destructive.
+/// The "Discard Changes / Keep Editing" alert; Keep Editing is the default (Return) button, discarding is destructive.
 @MainActor
 enum UnappliedChangesAlert {
     static func make(informativeText: String) -> NSAlert {
         let alert = NSAlert()
         alert.messageText = "Discard unapplied settings changes?"
         alert.informativeText = informativeText
-        let keep = alert.addButton(withTitle: "Keep Editing")
-        keep.keyEquivalent = "\u{1b}"
+        alert.addButton(withTitle: "Keep Editing")
         let discard = alert.addButton(withTitle: "Discard Changes")
         discard.hasDestructiveAction = true
         return alert
