@@ -269,6 +269,38 @@ struct ServerManagerTests {
         h.manager.stopMonitoring()
     }
 
+    @Test func anUnloadedModelIsIdleOnlyOnAServerStartedWithIdleUnload() async {
+        var idle = settings
+        idle.idleUnloadMinutes = 5
+        let h = Harness(probe: FakeProbe(script: [.unreachable, .strata(.loaded())]))
+        await h.manager.start(settings: idle)
+        #expect(await waitUntil { h.manager.state.isRunning })
+
+        h.probe.setScript([.strata(.loading)])
+        h.manager.startMonitoring { 8080 }
+
+        #expect(await waitUntil { h.manager.state.runningInfo?.health == .notLoaded })
+        #expect(h.manager.state.runningInfo?.isIdleUnloaded == true)
+        #expect(h.manager.state.statusText.contains("unloaded after idle"))
+        #expect(!h.manager.state.statusText.contains("health check"))
+        #expect(h.manager.state.symbolName == "moon.circle")
+        #expect(h.launcher.processes.count == 1)
+        #expect(h.process?.signals.isEmpty == true)
+        h.manager.stopMonitoring()
+
+        // Without idle unload the same answer still means that something is wrong.
+        let plain = Harness(probe: FakeProbe(script: [.unreachable, .strata(.loaded())]))
+        await plain.manager.start(settings: settings)
+        #expect(await waitUntil { plain.manager.state.isRunning })
+        plain.probe.setScript([.strata(.loading)])
+        plain.manager.startMonitoring { 8080 }
+        #expect(await waitUntil { plain.manager.state.runningInfo?.health == .notLoaded })
+        #expect(plain.manager.state.runningInfo?.isIdleUnloaded == false)
+        #expect(plain.manager.state.statusText.contains("health check: model not loaded"))
+        #expect(plain.manager.state.symbolName == "exclamationmark.circle")
+        plain.manager.stopMonitoring()
+    }
+
     @Test func waitForIdleReturnsOnceAStopHasFinished() async {
         let h = Harness(probe: FakeProbe(script: [.unreachable, .strata(.loaded())]))
         h.launcher.nextBehavior = FakeProcess.Behavior(exitsOnProcessSignal: [], exitsOnGroupSignal: [SIGKILL], groupDiesOnSignal: [SIGKILL])

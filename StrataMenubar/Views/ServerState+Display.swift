@@ -5,7 +5,12 @@ extension ServerState {
         switch self {
         case .stopped: "stop.circle"
         case .starting, .stopping: "clock"
-        case .running(let info): info.health == .ok ? "checkmark.circle.fill" : "exclamationmark.circle"
+        case .running(let info):
+            if info.isIdleUnloaded {
+                "moon.circle"
+            } else {
+                info.health == .ok ? "checkmark.circle.fill" : "exclamationmark.circle"
+            }
         case .external: "eye.circle"
         case .failed: "exclamationmark.triangle.fill"
         }
@@ -19,7 +24,7 @@ extension ServerState {
             "Starting on port \(info.port) (PID \(info.pid))…"
         case .running(let info):
             "Running on port \(info.port): \(info.model ?? "unknown model"), context \(info.maxContext.map(String.init) ?? "?")"
-                + info.health.suffix
+                + (info.isIdleUnloaded ? " (model unloaded after idle; loads on the next request)" : info.health.suffix)
         case .stopping:
             "Stopping…"
         case .external(let info):

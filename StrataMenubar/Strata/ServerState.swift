@@ -27,6 +27,10 @@ struct RunningInfo: Equatable, Sendable {
     var health: HealthStatus
 
     var port: Int { settings.port }
+
+    /// An unloaded model is what idle unload does, not a failure, on a server that was started with it. The server
+    /// does not say why the model is unloaded, so this also covers the reload a request has just triggered.
+    var isIdleUnloaded: Bool { health == .notLoaded && settings.idleUnloadMinutes > 0 }
 }
 
 /// The last health check of a running server. A failing check is shown, never acted on: the process is still ours.
