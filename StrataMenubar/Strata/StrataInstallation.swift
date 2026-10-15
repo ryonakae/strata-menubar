@@ -41,6 +41,25 @@ struct StrataInstallation: Equatable, Sendable {
             .sorted { $0.tag < $1.tag }
     }
 
+    /// What the selected model's config already says; nil when there is no readable config for the tag.
+    func baseFacts(for tag: String) -> BaseConfigFacts? {
+        guard let object = (try? JSONSerialization.jsonObject(with: Data(contentsOf: configURL(for: tag)))) as? [String: Any] else {
+            return nil
+        }
+        let args = object["args"] as? [String] ?? []
+        var specWindow: Int?
+        if let index = args.firstIndex(of: "--spec"), index + 1 < args.count {
+            specWindow = Int(args[index + 1])
+        }
+        let env = object["env"] as? [String: Any] ?? [:]
+        let streaming: Bool? = switch env["STRATA_METAL_STREAM"] as? String {
+        case "1": true
+        case "0": false
+        default: nil
+        }
+        return BaseConfigFacts(specWindow: specWindow, hasMTP: args.contains("--mtp"), streaming: streaming)
+    }
+
     /// Everything a launch of the selected model would trip over, in plain words; empty when it is usable.
     func check(model tag: String, fileManager fm: FileManager = .default) -> [String] {
         var isDirectory: ObjCBool = false

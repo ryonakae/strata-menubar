@@ -28,8 +28,14 @@ struct RunConfigTests {
         return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
 
-    @Test func changesOnlyTheManagedKeysAndKeepsTheRest() throws {
+    private var fixed: StrataSettings {
         var settings = StrataSettings.default
+        settings.autoExpertCache = false
+        return settings
+    }
+
+    @Test func changesOnlyTheManagedKeysAndKeepsTheRest() throws {
+        var settings = fixed
         settings.maxContext = 4096
         settings.expertCacheGB = 4.5
         settings.port = 8090
@@ -43,6 +49,8 @@ struct RunConfigTests {
         ])
         #expect(config["log"] as? String == "/logs/engine.log")
         #expect(config["port"] as? Int == 8090)
+        #expect(config["idle_unload_s"] == nil)
+        #expect(config["fit_max_tokens"] == nil)
         #expect(config["exe"] as? String == "/x/build-metal/strata")
         #expect(config["cwd"] as? String == "/x")
         #expect(config["tokenizer"] as? String == "/d/packs/q2_0/tokenizer")
@@ -53,8 +61,76 @@ struct RunConfigTests {
     }
 
     @Test func writesWholeGigabytesWithoutADecimalPoint() throws {
-        let env = try make(.default)["env"] as? [String: String]
+        let env = try make(fixed)["env"] as? [String: String]
         #expect(env?["STRATA_METAL_ARENA_GB"] == "5")
+    }
+
+    @Test func anAutomaticCacheLeavesTheArenaToTheEngine() throws {
+        let env = try make(.default)["env"] as? [String: String]
+        #expect(env == ["STRATA_METAL_STREAM": "1", "OTHER": "kept"])
+
+        // The key is the app's: a base config that carries it would silently fix what the settings call automatic.
+        let withArena = base.replacingOccurrences(of: "\"OTHER\": \"kept\"", with: "\"OTHER\": \"kept\", \"STRATA_METAL_ARENA_GB\": \"10\"")
+        #expect(try make(.default, base: withArena)["env"] as? [String: String] == ["STRATA_METAL_STREAM": "1", "OTHER": "kept"])
+    }
+
+    @Test func writesTheKeptMemoryOnlyWithAnAutomaticCache() throws {
+        var automatic = StrataSettings.default
+        automatic.keepFreeGB = 9
+        #expect((try make(automatic)["env"] as? [String: String])?["STRATA_METAL_KEEP_FREE_GB"] == "9")
+
+        var fixedWithKeep = fixed
+        fixedWithKeep.keepFreeGB = 9
+        #expect((try make(fixedWithKeep)["env"] as? [String: String])?["STRATA_METAL_KEEP_FREE_GB"] == nil)
+
+        let withKeep = base.replacingOccurrences(of: "\"OTHER\": \"kept\"", with: "\"OTHER\": \"kept\", \"STRATA_METAL_KEEP_FREE_GB\": \"5\"")
+        #expect((try make(.default, base: withKeep)["env"] as? [String: String])?["STRATA_METAL_KEEP_FREE_GB"] == nil)
+    }
+
+    @Test func replacesOrAppendsTheSpecWindowAndKeepsItWhenUnset() throws {
+        var window = StrataSettings.default
+        window.specWindow = 3
+        #expect(try make(window)["args"] as? [String] == [
+            "--pack", "/d/packs/q2_0", "--spec", "3", "--suffix-draft", "0", "--max-context", "8192", "--mmap-experts",
+        ])
+
+        let noSpec = base.replacingOccurrences(of: "\"--spec\", \"2\", ", with: "")
+        #expect(try make(window, base: noSpec)["args"] as? [String] == [
+            "--pack", "/d/packs/q2_0", "--suffix-draft", "0", "--max-context", "8192", "--mmap-experts", "--spec", "3",
+        ])
+
+        #expect(try make(.default)["args"] as? [String] == [
+            "--pack", "/d/packs/q2_0", "--spec", "2", "--suffix-draft", "0", "--max-context", "8192", "--mmap-experts",
+        ])
+    }
+
+    @Test func writesThePromptChunkOnlyWhenSet() throws {
+        var chunk = StrataSettings.default
+        chunk.promptChunk = 2048
+        #expect((try make(chunk)["env"] as? [String: String])?["STRATA_METAL_PROMPT_CHUNK"] == "2048")
+
+        let withChunk = base.replacingOccurrences(of: "\"OTHER\": \"kept\"", with: "\"OTHER\": \"kept\", \"STRATA_METAL_PROMPT_CHUNK\": \"4096\"")
+        #expect((try make(.default, base: withChunk)["env"] as? [String: String])?["STRATA_METAL_PROMPT_CHUNK"] == nil)
+    }
+
+    @Test func writesTheIdleUnloadInSecondsAndDropsItWhenNever() throws {
+        var idle = StrataSettings.default
+        idle.idleUnloadMinutes = 5
+        #expect(try make(idle)["idle_unload_s"] as? Int == 300)
+
+        let withIdle = base.replacingOccurrences(of: "\"port\": 8080,", with: "\"port\": 8080, \"idle_unload_s\": 600,")
+        #expect(try make(.default, base: withIdle)["idle_unload_s"] == nil)
+    }
+
+    @Test func writesFitMaxTokensAsAJSONBooleanOnlyWhenOn() throws {
+        var fit = StrataSettings.default
+        fit.fitMaxTokens = true
+        let data = try RunConfig.make(base: Data(base.utf8), settings: fit, engineLog: URL(filePath: "/logs/engine.log"))
+        // The server only accepts the JSON literal true, not 1.
+        #expect(String(decoding: data, as: UTF8.self).contains("\"fit_max_tokens\" : true"))
+
+        let withFit = base.replacingOccurrences(of: "\"port\": 8080,", with: "\"port\": 8080, \"fit_max_tokens\": true,")
+        #expect(try make(.default, base: withFit)["fit_max_tokens"] == nil)
     }
 
     @Test func appendsMaxContextWhenTheBaseHasNone() throws {
@@ -63,10 +139,10 @@ struct RunConfigTests {
         #expect(args == ["--pack", "/d/packs/q2_0", "--spec", "2", "--suffix-draft", "0", "--mmap-experts", "--max-context", "8192"])
     }
 
-    @Test func addsTheStreamFlagWhenTheBaseEnvLacksIt() throws {
+    @Test func leavesTheStreamingChoiceToTheBase() throws {
         let noEnv = base.replacingOccurrences(of: "\"env\": {\"STRATA_METAL_STREAM\": \"1\", \"OTHER\": \"kept\"},", with: "")
-        let env = try make(.default, base: noEnv)["env"] as? [String: String]
-        #expect(env == ["STRATA_METAL_STREAM": "1", "STRATA_METAL_ARENA_GB": "5"])
+        #expect(try make(.default, base: noEnv)["env"] == nil)
+        #expect(try make(fixed, base: noEnv)["env"] as? [String: String] == ["STRATA_METAL_ARENA_GB": "5"])
     }
 
     @Test func rejectsABaseWithoutAnArgsArray() {

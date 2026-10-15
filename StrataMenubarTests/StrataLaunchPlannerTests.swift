@@ -48,7 +48,8 @@ struct StrataLaunchPlannerTests {
         let args = try #require(written["args"] as? [String])
         #expect(args.contains("--max-context"))
         #expect(args[args.firstIndex(of: "--max-context")! + 1] == "4096")
-        #expect((written["env"] as? [String: String])?["STRATA_METAL_ARENA_GB"] == "5")
+        // The default cache is automatic: the engine sizes the arena, so the key stays out of the run config.
+        #expect(written["env"] as? [String: String] == ["STRATA_METAL_STREAM": "1"])
         #expect(written["log"] as? String == paths.engineLog.path(percentEncoded: false))
         #expect(written["port"] as? Int == 8090)
     }

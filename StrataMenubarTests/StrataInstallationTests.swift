@@ -64,4 +64,27 @@ struct StrataInstallationTests {
         #expect(problems.count == 1)
         #expect(problems[0].contains("build-metal/strata"))
     }
+
+    @Test func readsWhatTheBaseConfigSaysAboutSpecMTPAndStreaming() throws {
+        let install = try TestInstallation.make()
+        defer { install.remove() }
+        let installation = StrataInstallation(root: install.root)
+        #expect(installation.baseFacts(for: "q2_0") == BaseConfigFacts(specWindow: 2, hasMTP: false, streaming: true))
+
+        var contents = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: install.baseConfig)) as? [String: Any])
+        var args = try #require(contents["args"] as? [String])
+        args[args.firstIndex(of: "--spec")! + 1] = "3"
+        args += ["--mtp", "/d/mtp.bin"]
+        contents["args"] = args
+        contents["env"] = ["STRATA_METAL_STREAM": "0"]
+        try JSONSerialization.data(withJSONObject: contents).write(to: install.configURL(for: "resident"))
+        #expect(installation.baseFacts(for: "resident") == BaseConfigFacts(specWindow: 3, hasMTP: true, streaming: false))
+
+        contents["args"] = args.filter { !["--spec", "3", "--mtp", "/d/mtp.bin"].contains($0) }
+        contents.removeValue(forKey: "env")
+        try JSONSerialization.data(withJSONObject: contents).write(to: install.configURL(for: "bare"))
+        #expect(installation.baseFacts(for: "bare") == BaseConfigFacts(specWindow: nil, hasMTP: false, streaming: nil))
+
+        #expect(installation.baseFacts(for: "missing") == nil)
+    }
 }
