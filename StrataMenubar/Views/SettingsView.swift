@@ -51,7 +51,6 @@ struct SettingsView: View {
         .background(WindowCloseGuard(isDirty: isDirty, discard: revert))
         .onAppear {
             checkInstallation()
-            draftState.discard = { revert() }
             draftState.isDirty = isDirty
         }
         .onDisappear {

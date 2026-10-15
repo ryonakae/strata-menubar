@@ -3,10 +3,9 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        let draft = AppContainer.shared.settingsDraft
-        if draft.isDirty {
-            guard confirmDiscardingSettingsDraft() else { return .terminateCancel }
-            draft.discard()
+        // Only a question: a quit that goes through takes the draft with the process, and a cancelled one keeps it.
+        if AppContainer.shared.settingsDraft.isDirty, !confirmDiscardingSettingsDraft() {
+            return .terminateCancel
         }
         let manager = AppContainer.shared.serverManager
         switch manager.quitRequirement {

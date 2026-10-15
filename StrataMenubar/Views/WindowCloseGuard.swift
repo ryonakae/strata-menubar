@@ -1,21 +1,21 @@
 import AppKit
 import SwiftUI
 
-/// The settings window's unapplied draft, shared with the app delegate so that quitting can ask about it too.
+/// Whether the settings window holds an unapplied draft, shared with the app delegate so that quitting can ask too.
 @MainActor
 @Observable
 final class SettingsDraftState {
     var isDirty = false
-    var discard: () -> Void = {}
 }
 
-/// The "Discard Changes / Keep Editing" alert; Keep Editing is the default button, discarding is marked destructive.
+/// The "Discard Changes / Keep Editing" alert; Keep Editing answers both Return and Escape, discarding is destructive.
 enum UnappliedChangesAlert {
     static func make(informativeText: String) -> NSAlert {
         let alert = NSAlert()
         alert.messageText = "Discard unapplied settings changes?"
         alert.informativeText = informativeText
-        alert.addButton(withTitle: "Keep Editing")
+        let keep = alert.addButton(withTitle: "Keep Editing")
+        keep.keyEquivalent = "\u{1b}"
         let discard = alert.addButton(withTitle: "Discard Changes")
         discard.hasDestructiveAction = true
         return alert
