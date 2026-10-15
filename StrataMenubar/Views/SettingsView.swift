@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var draft: StrataSettings
     @State private var portText: String
     @State private var installationProblems: [String]?
+    @State private var baseFacts: BaseConfigFacts?
     @State private var packToInstall: String = StrataModelCatalog.packs[0].name
     @State private var copied = false
 
@@ -32,7 +33,7 @@ struct SettingsView: View {
     private var installed: [InstalledModel] { StrataInstallation(root: draft.strataDirectoryURL).installedModels() }
     private var portIsNumber: Bool { Int(portText.trimmingCharacters(in: .whitespaces)) != nil }
     private var issues: [SettingsIssue] {
-        draft.validate(memory: memory) + (portIsNumber ? [] : [.error("The port must be a number.")])
+        draft.validate(memory: memory, base: baseFacts) + (portIsNumber ? [] : [.error("The port must be a number.")])
     }
     private var hasErrors: Bool { issues.contains { $0.severity == .error } }
     private var launchProblems: [String] { installationProblems ?? [] }
@@ -42,6 +43,8 @@ struct SettingsView: View {
             installationSection
             modelSection
             memorySection
+            serverSection
+            engineSection
             runningSection
             installSection
             applySection
@@ -67,7 +70,7 @@ struct SettingsView: View {
             }
         }
         .onChange(of: settingsStore.settings) { previous, current in
-            // A choice made in the menu shows up here unless the user is in the middle of editing.
+            // A change saved elsewhere shows up here unless the user is in the middle of editing.
             if draft == previous {
                 load(current)
             }
@@ -111,6 +114,7 @@ struct SettingsView: View {
 
     private var memorySection: some View {
         Section("Memory and context") {
+            Toggle("Size the expert cache automatically", isOn: $draft.autoExpertCache)
             Slider(value: $draft.expertCacheGB, in: Double(memory.cacheRange.lowerBound)...Double(memory.cacheRange.upperBound), step: 1) {
                 Text("Expert cache: \(RunConfig.gigabytes(draft.expertCacheGB)) GB")
             } minimumValueLabel: {
@@ -118,6 +122,14 @@ struct SettingsView: View {
             } maximumValueLabel: {
                 Text("\(memory.cacheRange.upperBound)")
             }
+            .disabled(draft.autoExpertCache)
+            Picker("Keep free for macOS", selection: $draft.keepFreeGB) {
+                Text("Engine default (\(RunConfig.gigabytes(EngineDefaults.keepFreeGB(memory: memory))) GB on this Mac)").tag(Int?.none)
+                ForEach(choices(Array(memory.cacheRange), including: draft.keepFreeGB), id: \.self) { value in
+                    Text("\(value) GB").tag(Int?.some(value))
+                }
+            }
+            .disabled(!draft.autoExpertCache)
             Slider(value: contextSlider, in: 0...Double(ContextSteps.values.count - 1), step: 1) {
                 Text("Context: \(draft.maxContext)")
             } minimumValueLabel: {
@@ -125,14 +137,56 @@ struct SettingsView: View {
             } maximumValueLabel: {
                 Text(String(ContextSteps.values[ContextSteps.values.count - 1]))
             }
-            TextField("Port", text: $portText)
-            ForEach(issues) { issue in
-                issueLabel(issue.message, isError: issue.severity == .error)
+            Picker("Prompt chunk", selection: $draft.promptChunk) {
+                Text(promptChunkAutoLabel).tag(Int?.none)
+                ForEach(choices(PromptChunkSteps.values, including: draft.promptChunk), id: \.self) { value in
+                    Text(String(value)).tag(Int?.some(value))
+                }
             }
-            Text("The expert cache (STRATA_METAL_ARENA_GB) is only the arena for the most-used experts, not a limit on Strata's "
-                + "total memory: on a 32 GiB Mac a 5 GB cache gave the engine a footprint of about 13 GB at start. A fixed value is "
-                + "never shrunk automatically when memory runs short. Values are saved as you set them; warnings only say what "
-                + "has not worked.")
+            Text("Automatic: the engine sizes the expert arena from the memory macOS can give and keeps 7 GB or 15% of the RAM "
+                + "for macOS, whichever is more (Strata's docs/MAC.md). Fixed: the cache (STRATA_METAL_ARENA_GB) is only the arena "
+                + "for the most-used experts, not a limit on Strata's total memory: on a 32 GiB Mac a 5 GB cache gave the engine a "
+                + "footprint of about 13 GB at start, and a fixed value is never shrunk when memory runs short. The prompt chunk "
+                + "(STRATA_METAL_PROMPT_CHUNK) defaults to 2048 for a resident model and, when the experts stream, to 4096 from "
+                + "96 GiB of RAM and 1024 below. Values are saved as you set them; warnings only say what has not worked.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var serverSection: some View {
+        Section("Server") {
+            TextField("Port", text: $portText)
+            Picker("Unload the model after", selection: $draft.idleUnloadMinutes) {
+                ForEach(choices(IdleUnloadSteps.minutes, including: draft.idleUnloadMinutes), id: \.self) { minutes in
+                    Text(SettingsSummary.idleUnload(minutes)).tag(minutes)
+                }
+            }
+            Toggle("Fit max_tokens to the remaining context", isOn: $draft.fitMaxTokens)
+            Text("Idle unload ends the engine process after that long without requests and starts it again for the next one, "
+                + "which then takes a few seconds; the menu shows the model as unloaded meanwhile. Fit max_tokens clamps a "
+                + "request's max_tokens to what fits in the context instead of answering 400; a prompt that is itself longer "
+                + "than the context is still rejected.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var engineSection: some View {
+        Section("Engine") {
+            Picker("Verify window (--spec)", selection: $draft.specWindow) {
+                Text(specAsSetUpLabel).tag(Int?.none)
+                ForEach(choices(Array(SpecWindow.range), including: draft.specWindow), id: \.self) { value in
+                    Text(String(value)).tag(Int?.some(value))
+                }
+            }
+            if let baseFacts, !baseFacts.hasMTP {
+                Text("This model's config has no MTP draft layer (--mtp); --spec has no effect until setup adds one.")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+            Text("The verify window is how many tokens the MTP drafter proposes per check. Setup writes 2, or 3 for a streaming "
+                + "Mac that keeps the draft layer; 2 measured best on mixed text and 5 or more slower (Strata's docs/MAC.md).")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -141,7 +195,7 @@ struct SettingsView: View {
     private var runningSection: some View {
         Section("Running server") {
             if let running {
-                LabeledContent("Started with", value: Self.describe(running.settings))
+                LabeledContent("Started with", value: SettingsSummary.describe(running.settings, modelName: running.model))
                 if isDirty {
                     Text("Apply the changes above to save them; \"Apply and Restart Server\" also restarts with them.")
                         .foregroundStyle(.secondary)
@@ -196,6 +250,9 @@ struct SettingsView: View {
 
     private var applySection: some View {
         Section {
+            ForEach(issues) { issue in
+                issueLabel(issue.message, isError: issue.severity == .error)
+            }
             HStack {
                 Button("Revert") { revert() }
                     .disabled(!isDirty)
@@ -212,8 +269,7 @@ struct SettingsView: View {
                     .disabled(!isDirty || hasErrors)
                     .keyboardShortcut(.defaultAction)
             }
-            Text("Applied settings are used at the next start. The menu bar's Model, Expert cache and Context submenus save "
-                + "at once without this window.")
+            Text("Applied settings are used at the next start. The menu bar lists them; it does not change them.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -246,6 +302,28 @@ struct SettingsView: View {
             .font(.callout)
     }
 
+    private var promptChunkAutoLabel: String {
+        if let chunk = EngineDefaults.promptChunk(memory: memory, streaming: baseFacts?.streaming) {
+            "Auto (\(chunk) on this Mac)"
+        } else {
+            "Auto (the engine decides by model size)"
+        }
+    }
+
+    private var specAsSetUpLabel: String {
+        if let window = baseFacts?.specWindow {
+            "As set up (\(window))"
+        } else {
+            "As set up (none in the config; the engine's default is 2)"
+        }
+    }
+
+    /// The offered values plus a saved one that is not among them, so that it stays selectable and visible.
+    private func choices(_ values: [Int], including current: Int?) -> [Int] {
+        guard let current, !values.contains(current) else { return values }
+        return (values + [current]).sorted()
+    }
+
     // MARK: - Draft handling
 
     /// The slider position is derived from the draft, so that Revert can restore a saved context that is not a step.
@@ -272,7 +350,9 @@ struct SettingsView: View {
     }
 
     private func checkInstallation() {
-        installationProblems = StrataInstallation(root: draft.strataDirectoryURL).check(model: draft.model)
+        let installation = StrataInstallation(root: draft.strataDirectoryURL)
+        installationProblems = installation.check(model: draft.model)
+        baseFacts = installation.baseFacts(for: draft.model)
     }
 
     private func copy(_ command: String) {
@@ -284,10 +364,6 @@ struct SettingsView: View {
             try? await Task.sleep(for: .seconds(2))
             copied = false
         }
-    }
-
-    private static func describe(_ settings: StrataSettings) -> String {
-        "model \(settings.model), cache \(RunConfig.gigabytes(settings.expertCacheGB)) GB, context \(settings.maxContext), port \(settings.port)"
     }
 
     private static func describe(_ pack: ModelPack) -> String {

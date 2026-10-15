@@ -9,7 +9,6 @@ struct MenuContent: View {
 
     private var state: ServerState { serverManager.state }
     private var settings: StrataSettings { settingsStore.settings }
-    private let memory = MemoryBudget.current
 
     private var unappliedSettings: Bool {
         guard let info = state.runningInfo else { return false }
@@ -38,9 +37,7 @@ struct MenuContent: View {
             Text("Saved settings differ from the running server")
         }
         Divider()
-        modelMenu
-        cacheMenu
-        contextMenu
+        settingsSection
         Divider()
         Button("Start Server") {
             Task { await serverManager.start(settings: settings) }
@@ -81,11 +78,8 @@ struct MenuContent: View {
             NSWorkspace.shared.open(paths.logs)
         }
         Divider()
-        Button("Settings…") {
-            NSApp.activate()
-            openSettings()
-        }
-        .keyboardShortcut(",")
+        Button("Settings…") { showSettings() }
+            .keyboardShortcut(",")
         Divider()
         Button("Quit Strata Menubar") {
             NSApp.terminate(nil)
@@ -93,69 +87,29 @@ struct MenuContent: View {
         .keyboardShortcut("q")
     }
 
-    // MARK: - Saved-value submenus (a choice is saved at once; a running server keeps its own values)
+    // MARK: - Saved values (read-only; the settings window changes them)
 
-    private var modelMenu: some View {
+    /// The saved values, which the next start uses. A tuning value left to the engine or setup is listed only while
+    /// the running server has another one, so that the difference is visible.
+    private var settingsSection: some View {
         let installed = StrataInstallation(root: settings.strataDirectoryURL).installedModels()
-        let current = installed.first { $0.tag == settings.model }
-        return Menu("Model: \(current?.modelName ?? settings.model)") {
-            if installed.isEmpty {
-                Text("No strata-<model>.json in \(settings.strataDirectory)")
-            } else {
-                Picker("Model", selection: binding(\.model)) {
-                    ForEach(installed) { model in
-                        Text(model.modelName).tag(model.tag)
-                    }
-                    if current == nil {
-                        Text("\(settings.model) (not installed)").tag(settings.model)
-                    }
+        let modelName = installed.first { $0.tag == settings.model }?.modelName
+        let saved = SettingsSummary.rows(for: settings, modelName: modelName)
+        let running = state.runningInfo.map { SettingsSummary.rows(for: $0.settings, modelName: $0.model) }
+        return Section("Settings for the next start") {
+            ForEach(saved) { row in
+                let runningValue = running?.first { $0.label == row.label }?.value
+                let differs = runningValue != nil && runningValue != row.value
+                if !row.isDefault || differs {
+                    Button("\(row.label): \(row.value)" + (differs ? " (running: \(runningValue ?? ""))" : "")) { showSettings() }
                 }
-                .pickerStyle(.inline)
             }
         }
     }
 
-    private var cacheMenu: some View {
-        var choices = memory.cacheRange.map(Double.init)
-        if !choices.contains(settings.expertCacheGB) {
-            choices.append(settings.expertCacheGB)
-            choices.sort()
-        }
-        return Menu("Expert cache: \(RunConfig.gigabytes(settings.expertCacheGB)) GB") {
-            Picker("Expert cache", selection: binding(\.expertCacheGB)) {
-                ForEach(choices, id: \.self) { value in
-                    Text("\(RunConfig.gigabytes(value)) GB").tag(value)
-                }
-            }
-            .pickerStyle(.inline)
-        }
-    }
-
-    private var contextMenu: some View {
-        var choices = ContextSteps.values
-        if !choices.contains(settings.maxContext) {
-            choices.append(settings.maxContext)
-            choices.sort()
-        }
-        return Menu("Context: \(settings.maxContext)") {
-            Picker("Context", selection: binding(\.maxContext)) {
-                ForEach(choices, id: \.self) { value in
-                    Text(String(value)).tag(value)
-                }
-            }
-            .pickerStyle(.inline)
-        }
-    }
-
-    private func binding<Value>(_ keyPath: WritableKeyPath<StrataSettings, Value>) -> Binding<Value> {
-        Binding(
-            get: { settingsStore.settings[keyPath: keyPath] },
-            set: { newValue in
-                var changed = settingsStore.settings
-                changed[keyPath: keyPath] = newValue
-                settingsStore.save(changed)
-            }
-        )
+    private func showSettings() {
+        NSApp.activate()
+        openSettings()
     }
 
     private func open(log: URL) {

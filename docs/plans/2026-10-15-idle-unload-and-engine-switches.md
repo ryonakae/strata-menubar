@@ -45,7 +45,9 @@ Review base commit: `82646c6`。
 - [x] **稼働中の表示**: `StrataMenubar/Strata/ServerState.swift`（`isIdleUnloaded`）、`StrataMenubar/Views/ServerState+Display.swift`（文言とアイコン）を変更する。`StrataMenubarTests/ServerManagerTests.swift` に、idle unload 付きで起動したサーバーの monitor が `.strata(.loading)` を見ても `.running` のままで `isIdleUnloaded == true`、idle unload なしなら false、を足す（既存の `health == .unreachable` のテストと同じ流れ）。
   - 実装: `isIdleUnloaded` は `RunningInfo` の計算プロパティ。アイコンは `moon.circle`。テストは `statusText` / `symbolName`（純粋な拡張）も確認する。
   - 検証: `-only-testing` で ServerManagerTests 18 件成功。
-- [ ] **メニューと設定画面**: `StrataMenubar/Views/MenuContent.swift`（サブメニュー廃止、読み取り専用の行、`(running: X)`）、`StrataMenubar/Views/SettingsView.swift`（Auto トグル、Server / Engine セクション、各ポップアップ、注記、Started with）を変更する。Views に単体テストはない。アプリを起動して確認する（Final Validation）。
+- [x] **メニューと設定画面**: `StrataMenubar/Views/MenuContent.swift`（サブメニュー廃止、読み取り専用の行、`(running: X)`）、`StrataMenubar/Views/SettingsView.swift`（Auto トグル、Server / Engine セクション、各ポップアップ、注記、Started with）を変更する。Views に単体テストはない。アプリを起動して確認する（Final Validation）。
+  - 実装: 行の生成と「Started with」の規則は新設 `StrataMenubar/Views/SettingsSummary.swift` に一か所で持つ。既定のチューニング行は、稼働中のサーバーの値と違うときだけ例外的に出す（「(running: X)」を付ける行が隠れないように）。検証メッセージは Port が Server セクションへ移ったので Apply のセクションにまとめて出す。AGENTS.md の Layout と invariant（メニューは保存しない）はこの commit で更新。
+  - 検証: build 成功、警告なし。画面の確認は Final Validation。
 - [ ] **ドキュメントと実機検証**: `README.md`（Use のサブメニュー記述を読み取り専用の表示に、Settings の表に Expert cache Auto / Keep free / Idle unload / Spec / Prompt chunk / Fit max tokens、管理キーの一覧、Limitations の「the MTP draft and every other engine option」を「画像入力と上記以外のエンジンオプション」に）、`AGENTS.md`（invariant を「settings change only in the settings window via Apply; the menu shows them」に）を更新する。`StrataMenubarTests/RealStrataIntegrationTests.swift` は既定設定（Auto）で起動して run config に `STRATA_METAL_ARENA_GB` が無いことを確認し、再起動側の `changed` に固定 5 GB・Idle unload 5 min・`fit_max_tokens` を加えて run config のキーと `server.log` の「the model unloads after 300」行を確認するように広げる。実 Strata に対して一度実行する。
 
 ## Final Validation

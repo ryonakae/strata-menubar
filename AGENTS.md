@@ -40,7 +40,8 @@ open .build/DerivedData/Build/Products/Debug/StrataMenubar.app
 - `StrataMenubar/Strata/`: everything that touches Strata. `StrataInstallation` (installed
   `strata-<tag>.json`, checks), `RunConfig` + `LaunchPlan` (run config and spawn plan), `PosixProcessLauncher`
   (posix_spawn in a new process group), `HealthProbe`, `ServerManager` (the state machine), `StrataModelCatalog`.
-- `StrataMenubar/Views/`: `MenuContent` (the menu), `SettingsView` (draft + Apply), `WindowCloseGuard`.
+- `StrataMenubar/Views/`: `MenuContent` (the menu), `SettingsView` (draft + Apply), `SettingsSummary` (the saved
+  values as the menu lists them), `WindowCloseGuard`.
 - `StrataMenubarTests/`: Swift Testing suites; `Support/Fakes.swift` (fake launcher, process, probe,
   planner) and `Support/TestInstallation.swift` (a throwaway Strata layout on disk).
 - `docs/plans/archived/`: implementation plans with the decisions and validation records.
@@ -58,7 +59,7 @@ These are the contract with the user; a change needs a new plan, not a quiet edi
   and never stopped; a stop that fails keeps ownership and blocks a restart.
 - The server listens on `127.0.0.1` only.
 - Saved settings apply at the next start. Nothing restarts the server except the explicit
-  "Stop and Apply" / "Apply and Restart" actions; the menu saves at once, the settings window via Apply.
+  "Stop and Apply" / "Apply and Restart" actions; settings change only in the settings window via Apply, the menu lists them.
 - No automatic restart loops, no adoption of leftover processes, no installing or running Strata's setup.
 
 ## Conventions
