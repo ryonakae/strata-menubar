@@ -63,9 +63,17 @@ Review base commit: `60edd37`。
 既存のコマンドをそのまま使う（Swift マクロの plugin server はサンドボックス内で動かないため、Herdr ペインで実行する）。
 
 - [x] build：`xcodebuild -project StrataMenubar.xcodeproj -scheme StrataMenubar -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO build` → BUILD SUCCEEDED、警告なし（各 Task の test 実行でビルド済み）。
-- [x] test：同じ指定で `test` → 全件成功。新規・更新テストで、物理メモリ基準の警告、`model` の既定と保存、`ContextSteps`、導入済み一覧の検出、tag ごとの run config と `--config`、存在しない tag のエラー、`SetupCommand` の引用、カタログの導入済み判定が通る。既存のライフサイクル・実プロセステストは変更なしで通る。→ 61件成功（opt-in の実Strata統合テストは通常実行ではスキップ）。
-- [x] 実Strata統合テスト：`.build/real-strata.json` を置いて `-only-testing:StrataMenubarTests/RealStrataIntegrationTests` → 既定設定（`model: q2_0`）で従来どおり start → pong → save-only 不変 → restart → stop が通り、run config は `strata-q2_0.run.json`。→ 成功（起動約3秒で loaded、pong、保存のみ不変、4096 で再起動、停止後にプロセスなし、`~/Library/Application Support/StrataMenubar/` には `strata-q2_0.run.json` のみ）。
+- [x] test：同じ指定で `test` → 全件成功。新規・更新テストで、物理メモリ基準の警告、`model` の既定と保存、`ContextSteps`、導入済み一覧の検出、tag ごとの run config と `--config`、存在しない tag のエラー、`SetupCommand` の引用、カタログの導入済み判定が通る。既存のライフサイクル・実プロセステストは変更なしで通る。→ 最終 HEAD（`8cdef40`）で 63件成功（opt-in の実Strata統合テストは通常実行ではスキップ）、警告なし。
+- [x] 実Strata統合テスト：`.build/real-strata.json` を置いて `-only-testing:StrataMenubarTests/RealStrataIntegrationTests` → 既定設定（`model: q2_0`）で従来どおり start → pong → save-only 不変 → restart → stop が通り、run config は `strata-q2_0.run.json`。→ 成功（起動約3秒で loaded、pong、保存のみ不変、4096 で再起動、停止後にプロセスなし、`~/Library/Application Support/StrataMenubar/` には `strata-q2_0.run.json` のみ）。最終 HEAD（`8cdef40`）でも再実行して成功。
 - [ ] 実機（GUI）：アプリを起動し、メニューの Model ▸ に `qwen3.8-flash-next-q2_0` が1件、Expert cache ▸ に 1〜32 GB、Context ▸ に 6 段が並び、選ぶと設定画面のスライダーとメニューの表示が一致する。稼働中にメニューから Context を変えると未反映表示と「Stop and Apply Saved Settings」が出て、押すと新しい値で再起動する（`/health` の `max_context` で確認）。設定画面で IQ3_XXS を選んで Copy を押すと、クリップボードに `cd "/Users/ryo.nakae/Dev/local/Strata" && ./setup.sh --setup --model IQ3_XXS --no-start` が入る。cua-driver でステータス項目に到達できない場合は、前回と同様に未検証と明記してユーザー確認へ引き継ぐ。→ **未検証（ユーザー確認へ引き継ぎ）**。前回と同じく cua-driver はステータス項目に到達できず、サブメニュー・スライダー・Copy の画面操作は確認していない。
 - [x] `git diff --check` と差分確認 → モデル・ログ・生成設定・ビルド成果物が追跡対象に混入せず、Strata 本体・Pi 設定に変更がない（`strata-q2_0.json` の SHA-256 と `~/Dev/local/.pi/models.json` の mtime が前後で一致）。→ 一致を確認（SHA-256 `38e43c6e…`、models.json の mtime 変化なし）。`git diff --check` は commit 時に確認。
 
 > 各タスクは対応する検証が成功してから完了にする。実装中の軽微な差分と検証結果は該当箇所へ反映し、要件、対象外、公開契約の変更はユーザーへ確認する。最終確認では有効な検証結果を再利用し、計画と実際の変更が一致することを確認する。必要な検証と実装側の必須レビューが通ったら、計画を同名のまま `docs/plans/archived/` へ移す。
+
+## Gate summary
+
+- Review 対象 commit：`60edd37..8cdef40`（bf88ade, 0198f0f, 7a61c7f, 815ecca, 7dc31f3, 647aefa, c8a53f3, 4e1ebd8, 1eac629, c632c8c, 8cdef40）。
+- 独立レビュー：全体レビューで blocking 1件（既定モデルの fallback）→ `7dc31f3`。再レビューの新規 blocking（README の「閉じると破棄」に実装の裏付けなし）はユーザーの Requirement 変更（下書き + Apply、閉じるときと ⌘Q で破棄確認、既定は Keep Editing）に置換し `c8a53f3` で再実装 → full review の blocking（段にない Context の Revert）→ `4e1ebd8` → 新規 high（終了経路の discard）→ ユーザー確認の上 `1eac629`・`c632c8c` → 新規 high（Esc で Return の既定が消える）→ ユーザー確認の上 `8cdef40` → 残る指摘なしでクローズ。
+- ユーザー決定：未確定入力は破棄（のちに下書き方式へ変更）、導入確認失敗時は「Stop and Apply」無効化、暗黙の既定モデルの永続化は現状維持、⌘Q でも確認、既定ボタンは Keep Editing、終了経路では下書きに触れない、Return を Keep Editing に戻す。
+- 未解決の blocking/high・decision required：なし。残した medium/low は completion report に記載。GUI（サブメニュー、スライダー、Apply / Revert、破棄確認シート、⌘Q の確認、Copy Command）は未検証のままユーザー確認へ引き継ぎ。
+- Final validation：build / test（63件）成功、実Strata統合テストを最終 HEAD で再実行して成功、`git diff --check` clean、Strata の `strata-q2_0.json` と Pi の `models.json` は無変更、作業ツリーに残置なし。
