@@ -199,7 +199,7 @@ struct SettingsView: View {
                 if isDirty {
                     Text("Apply the changes above to save them; \"Apply and Restart Server\" also restarts with them.")
                         .foregroundStyle(.secondary)
-                } else if running.settings != saved {
+                } else if running.settings.effective != saved.effective {
                     HStack {
                         Text("The saved settings differ. They apply at the next start, or now:")
                             .foregroundStyle(.orange)
@@ -263,7 +263,7 @@ struct SettingsView: View {
                         let settings = draft
                         Task { await serverManager.restart(settings: settings) }
                     }
-                    .disabled(hasErrors || !launchProblems.isEmpty || (!isDirty && running.settings == saved))
+                    .disabled(hasErrors || !launchProblems.isEmpty || (!isDirty && running.settings.effective == saved.effective))
                 }
                 Button("Apply") { apply() }
                     .disabled(!isDirty || hasErrors)

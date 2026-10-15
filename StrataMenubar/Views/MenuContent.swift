@@ -12,7 +12,7 @@ struct MenuContent: View {
 
     private var unappliedSettings: Bool {
         guard let info = state.runningInfo else { return false }
-        return info.settings != settings
+        return info.settings.effective != settings.effective
     }
 
     private var canRefresh: Bool {

@@ -63,7 +63,9 @@ Actions:
   (90 s for the server to close the engine itself, then 20 s and 10 s for
   anything left); the engine frees its memory first.
 - **Stop and Apply Saved Settings** appears when the saved settings differ from
-  the ones the running server was started with.
+  the ones the running server was started with. A value the cache mode does not
+  use (the fixed size while Auto is on, the kept memory while it is off) does
+  not count.
 - **Open Chat** opens Strata's web page of the server that is actually
   listening (its own port, not a newly saved one).
 - **Open Server Log** / **Open Engine Log** / **Show Logs in Finder** open the

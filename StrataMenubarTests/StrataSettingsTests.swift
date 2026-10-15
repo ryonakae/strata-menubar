@@ -180,6 +180,26 @@ struct StrataSettingsTests {
         #expect(large.validate(memory: memory, base: resident).isEmpty)
     }
 
+    @Test func effectiveSettingsIgnoreTheValuesTheModeLeavesUnused() {
+        var automatic = StrataSettings.default
+        automatic.expertCacheGB = 8
+        #expect(automatic.effective == StrataSettings.default.effective)
+        #expect(automatic != StrataSettings.default)
+
+        var keeping = fixed
+        keeping.keepFreeGB = 9
+        #expect(keeping.effective == fixed.effective)
+
+        var keepingAutomatic = StrataSettings.default
+        keepingAutomatic.keepFreeGB = 9
+        #expect(keepingAutomatic.effective != StrataSettings.default.effective)
+
+        var larger = fixed
+        larger.expertCacheGB = 8
+        #expect(larger.effective != fixed.effective)
+        #expect(fixed.effective != StrataSettings.default.effective)
+    }
+
     @Test func stepsForIdleUnloadPromptChunkAndSpecWindow() {
         #expect(IdleUnloadSteps.minutes == [0, 5, 10, 15, 30, 60, 120])
         #expect(PromptChunkSteps.values == [1024, 2048, 4096, 8192])

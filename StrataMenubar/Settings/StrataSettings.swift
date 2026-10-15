@@ -43,6 +43,18 @@ struct StrataSettings: Equatable, Codable, Sendable {
         validate().contains { $0.severity == .error }
     }
 
+    /// The settings as a launch sees them: a value the cache mode leaves unused is reset, so that two settings compare
+    /// equal when they start the same server and nobody is asked to restart for nothing.
+    var effective: StrataSettings {
+        var copy = self
+        if autoExpertCache {
+            copy.expertCacheGB = Self.default.expertCacheGB
+        } else {
+            copy.keepFreeGB = nil
+        }
+        return copy
+    }
+
     /// `base` is what the selected model's config already says; without it the checks that depend on it are skipped.
     func validate(memory: MemoryBudget = .current, base: BaseConfigFacts? = nil) -> [SettingsIssue] {
         var issues: [SettingsIssue] = []

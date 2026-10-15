@@ -69,6 +69,9 @@
   - 「Started with」表示と未反映判定: 新項目はすべて `StrataSettings` のフィールドにするので、等値比較による未反映判定には自動で含まれる。「Started with」の文字列はメニューと同じ規則（Model / Expert cache / Context / Port / Idle unload は常に、チューニング項目は既定でないときだけ）。
   - 管理キーの一覧（README）: `--max-context`、`--spec`（変更時のみ）、`STRATA_METAL_ARENA_GB`（固定時のみ）、`STRATA_METAL_KEEP_FREE_GB`（Auto で指定時のみ）、`STRATA_METAL_PROMPT_CHUNK`（指定時のみ）、`idle_unload_s`（Never 以外）、`fit_max_tokens`（true のみ）、`log`、`port`。`STRATA_METAL_STREAM` は一覧から外す。
   - 出典: Q10 → A
+- 未反映判定（「Saved settings differ」「Stop and Apply」）は有効な値で比べる。Auto のときの固定値 `expertCacheGB` と、固定のときの `keepFreeGB` は run config に書かれないので比較から外す。設定画面の下書きの dirty 判定は全項目のまま。
+  - 理由: run config が同じなら再起動を促す意味がなく、「違いがあればどこかの行に (running: X) が付く」という Q8 の趣旨を守れる。
+  - 出典: implement 中のユーザー決定（Unit B 独立レビューの decision required: 潜在値の差で differ が出るがどの行にも差分が付かない）
 
 ## 対象外
 - 5 項目以外のスイッチ（`STRATA_HC_Q8`、`FUSE` / `LAZY_FOLD` / `PARTIAL` / `ROUTE` / `MTP_Q8` / `MTP_CHAIN` / `PROMPT=window`、`TRACE` / `PROFILE` / `KPROF`、`WIRE_ARENA` / `LEAVE_SHARE`、`IGNORE_REPACK`、`CONTIG`、`KEEP_HOST_WEIGHTS`）、`--host` / `--api-key`（invariant）、`--vision` / `--mtp` / `--draft-vocab`（setup 時に決まる）、`--lazy`。
