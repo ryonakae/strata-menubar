@@ -38,7 +38,9 @@ open .build/DerivedData/Build/Products/Debug/StrataMenubar.app
 - `StrataMenubar/Settings/`: `StrataSettings` (values, validation, `MemoryBudget`, the step lists),
   `EngineDefaults` (what the engine picks when a value is unset, computed for display), `SettingsStore` (UserDefaults).
 - `StrataMenubar/Strata/`: everything that touches Strata. `StrataInstallation` (installed
-  `strata-<tag>.json`, checks), `RunConfig` + `LaunchPlan` (run config and spawn plan), `PosixProcessLauncher`
+  `strata-<tag>.json`, checks), `StrataDataDirectory` (setup's data directory, the state of a pack's files),
+  `ModelLibrary` (installed and downloaded models, kept current by `DirectoryWatcher`; `ExternalSetup` spots a setup
+  run from a terminal), `RunConfig` + `LaunchPlan` (run config and spawn plan), `PosixProcessLauncher`
   (posix_spawn in a new process group), `HealthProbe`, `ServerManager` (the state machine), `StrataModelCatalog`.
 - `StrataMenubar/Views/`: `MenuContent` (the menu), `SettingsView` (draft + Apply), `SettingsSummary` (the saved
   values as the menu lists them), `WindowCloseGuard`.

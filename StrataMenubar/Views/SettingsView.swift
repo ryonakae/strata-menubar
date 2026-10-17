@@ -6,6 +6,7 @@ import SwiftUI
 struct SettingsView: View {
     let settingsStore: SettingsStore
     let serverManager: ServerManager
+    let library: ModelLibrary
     let draftState: SettingsDraftState
 
     private let memory = MemoryBudget.current
@@ -17,9 +18,10 @@ struct SettingsView: View {
     @State private var packToInstall: String = StrataModelCatalog.packs[0].name
     @State private var copied = false
 
-    init(settingsStore: SettingsStore, serverManager: ServerManager, draftState: SettingsDraftState) {
+    init(settingsStore: SettingsStore, serverManager: ServerManager, library: ModelLibrary, draftState: SettingsDraftState) {
         self.settingsStore = settingsStore
         self.serverManager = serverManager
+        self.library = library
         self.draftState = draftState
         let settings = settingsStore.settings
         _draft = State(initialValue: settings)
@@ -30,7 +32,9 @@ struct SettingsView: View {
     /// A port field that does not parse is unapplied work too: it must be revertable and asked about.
     private var isDirty: Bool { draft != saved || !portIsNumber }
     private var running: RunningInfo? { serverManager.state.runningInfo }
-    private var installed: [InstalledModel] { StrataInstallation(root: draft.strataDirectoryURL).installedModels() }
+    /// The saved directory is watched; a directory typed but not yet applied is read afresh instead.
+    private var usesLibrary: Bool { draft.strataDirectoryURL.path(percentEncoded: false) == library.root.path(percentEncoded: false) }
+    private var installed: [InstalledModel] { usesLibrary ? library.installed : ModelLibrary.scan(root: draft.strataDirectoryURL).installed }
     private var portIsNumber: Bool { Int(portText.trimmingCharacters(in: .whitespaces)) != nil }
     private var issues: [SettingsIssue] {
         draft.validate(memory: memory, base: baseFacts) + (portIsNumber ? [] : [.error("The port must be a number.")])
@@ -338,6 +342,8 @@ struct SettingsView: View {
         guard isDirty, !hasErrors else { return }
         draft.strataDirectory = draft.strataDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
         settingsStore.save(draft)
+        library.update(root: draft.strataDirectoryURL)
+        checkInstallation()
     }
 
     private func revert() {
@@ -351,7 +357,12 @@ struct SettingsView: View {
 
     private func checkInstallation() {
         let installation = StrataInstallation(root: draft.strataDirectoryURL)
-        installationProblems = installation.check(model: draft.model)
+        if usesLibrary {
+            library.refresh()
+            installationProblems = library.launchProblems(for: draft.model)
+        } else {
+            installationProblems = installation.check(model: draft.model)
+        }
         baseFacts = installation.baseFacts(for: draft.model)
     }
 

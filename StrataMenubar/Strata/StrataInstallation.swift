@@ -60,26 +60,27 @@ struct StrataInstallation: Equatable, Sendable {
         return BaseConfigFacts(specWindow: specWindow, hasMTP: args.contains("--mtp"), streaming: streaming)
     }
 
+    /// What every model needs from the checkout, config or not: the interpreter and the server script.
+    func checkRuntime(fileManager fm: FileManager = .default) -> [String] {
+        if let problem = rootProblem(fileManager: fm) {
+            return [problem]
+        }
+        return runtimeProblems(fileManager: fm)
+    }
+
     /// Everything a launch of the selected model would trip over, in plain words; empty when it is usable.
     func check(model tag: String, fileManager fm: FileManager = .default) -> [String] {
-        var isDirectory: ObjCBool = false
-        guard fm.fileExists(atPath: root.path(percentEncoded: false), isDirectory: &isDirectory), isDirectory.boolValue else {
-            return ["The Strata directory does not exist: \(root.path(percentEncoded: false))"]
+        if let problem = rootProblem(fileManager: fm) {
+            return [problem]
         }
-        var problems: [String] = []
-        if !fm.isExecutableFile(atPath: python.path(percentEncoded: false)) {
-            problems.append("The Python interpreter is missing (run Strata's setup.sh): \(python.path(percentEncoded: false))")
-        }
-        if !fm.fileExists(atPath: server.path(percentEncoded: false)) {
-            problems.append("The server script is missing: \(server.path(percentEncoded: false))")
-        }
+        var problems = runtimeProblems(fileManager: fm)
         let config = configURL(for: tag)
         guard fm.fileExists(atPath: config.path(percentEncoded: false)) else {
             let installed = installedModels(fileManager: fm).map(\.tag)
             problems.append(
                 "The config for the model \"\(tag)\" is missing: \(config.path(percentEncoded: false)). "
                     + "Installed: \(installed.isEmpty ? "none" : installed.joined(separator: ", ")). "
-                    + "Run Strata's setup.sh --setup --model to add a model."
+                    + "Download it in Settings › Models."
             )
             return problems
         }
@@ -92,6 +93,25 @@ struct StrataInstallation: Equatable, Sendable {
             problems += checkContents(of: contents, fileManager: fm)
         } catch {
             problems.append("The config cannot be read: \(error.localizedDescription)")
+        }
+        return problems
+    }
+
+    private func rootProblem(fileManager fm: FileManager) -> String? {
+        var isDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: root.path(percentEncoded: false), isDirectory: &isDirectory), isDirectory.boolValue else {
+            return "The Strata directory does not exist: \(root.path(percentEncoded: false))"
+        }
+        return nil
+    }
+
+    private func runtimeProblems(fileManager fm: FileManager) -> [String] {
+        var problems: [String] = []
+        if !fm.isExecutableFile(atPath: python.path(percentEncoded: false)) {
+            problems.append("The Python interpreter is missing (run Strata's setup.sh): \(python.path(percentEncoded: false))")
+        }
+        if !fm.fileExists(atPath: server.path(percentEncoded: false)) {
+            problems.append("The server script is missing: \(server.path(percentEncoded: false))")
         }
         return problems
     }

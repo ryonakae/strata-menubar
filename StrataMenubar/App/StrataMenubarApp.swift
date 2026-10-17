@@ -10,6 +10,7 @@ struct StrataMenubarApp: App {
             MenuContent(
                 serverManager: container.serverManager,
                 settingsStore: container.settingsStore,
+                library: container.modelLibrary,
                 paths: container.paths
             )
         } label: {
@@ -18,7 +19,12 @@ struct StrataMenubarApp: App {
         .menuBarExtraStyle(.menu)
 
         Settings {
-            SettingsView(settingsStore: container.settingsStore, serverManager: container.serverManager, draftState: container.settingsDraft)
+            SettingsView(
+                settingsStore: container.settingsStore,
+                serverManager: container.serverManager,
+                library: container.modelLibrary,
+                draftState: container.settingsDraft
+            )
         }
     }
 }

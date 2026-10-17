@@ -9,9 +9,11 @@ final class AppContainer {
     let settingsStore: SettingsStore
     let settingsDraft = SettingsDraftState()
     let serverManager: ServerManager
+    let modelLibrary: ModelLibrary
 
     private init() {
         settingsStore = SettingsStore()
+        modelLibrary = ModelLibrary(root: settingsStore.settings.strataDirectoryURL)
         serverManager = ServerManager(
             launcher: PosixProcessLauncher(),
             probe: URLSessionHealthProbe(),

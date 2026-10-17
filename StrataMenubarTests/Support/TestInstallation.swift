@@ -1,4 +1,5 @@
 import Foundation
+@testable import StrataMenubar
 
 /// A throwaway Strata layout with the files a launch checks for and a base config in the shape setup.py writes.
 struct TestInstallation {
@@ -19,6 +20,31 @@ struct TestInstallation {
     /// Writes another installed model's config next to the first, sharing the same model files.
     func addModel(tag: String, modelName: String) throws {
         try Self.writeConfig(to: configURL(for: tag), root: root, data: dataDirectory, modelName: modelName, includeMaxContext: true)
+    }
+
+    /// The shards of a pack with their `.done` marks, as setup leaves them after a finished download.
+    func addDownloadedPack(_ pack: ModelPack, bytesPerShard: Int = 0) throws {
+        let directory = dataDirectory.appending(path: "models/\(pack.directoryName)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for name in pack.shardNames {
+            try Data(count: bytesPerShard).write(to: directory.appending(path: name))
+            try Data("2026-10-16 11:30".utf8).write(to: directory.appending(path: name + ".done"))
+        }
+    }
+
+    /// A download that stopped in shard 1: only its `.part` exists.
+    func addPartialPack(_ pack: ModelPack, partBytes: Int) throws {
+        let directory = dataDirectory.appending(path: "models/\(pack.directoryName)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data(count: partBytes).write(to: directory.appending(path: pack.shardNames[0] + ".part"))
+    }
+
+    /// Strata's own settings file naming a data directory; returned so that tests can hand it to the resolver.
+    func writeStrataSettings(dataDir: URL) throws -> URL {
+        let url = base.appending(path: "strata-settings.json")
+        let json = try JSONSerialization.data(withJSONObject: ["data_dir": dataDir.path(percentEncoded: false), "installs": [root.path(percentEncoded: false)]])
+        try json.write(to: url)
+        return url
     }
 
     static func make(

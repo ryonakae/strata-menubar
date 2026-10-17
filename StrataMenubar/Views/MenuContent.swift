@@ -4,6 +4,7 @@ import SwiftUI
 struct MenuContent: View {
     let serverManager: ServerManager
     let settingsStore: SettingsStore
+    let library: ModelLibrary
     let paths: AppPaths
     @Environment(\.openSettings) private var openSettings
 
@@ -49,7 +50,7 @@ struct MenuContent: View {
         .disabled(!serverManager.canStop)
         if unappliedSettings {
             // A launch that is bound to fail must not take a working server down with it.
-            let problems = StrataInstallation(root: settings.strataDirectoryURL).check(model: settings.model)
+            let problems = library.launchProblems(for: settings.model)
             Button("Stop and Apply Saved Settings") {
                 Task { await serverManager.restart(settings: settings) }
             }
@@ -92,8 +93,7 @@ struct MenuContent: View {
     /// The saved values, which the next start uses. A tuning value left to the engine or setup is listed only while
     /// the running server has another one, so that the difference is visible.
     private var settingsSection: some View {
-        let installed = StrataInstallation(root: settings.strataDirectoryURL).installedModels()
-        let modelName = installed.first { $0.tag == settings.model }?.modelName
+        let modelName = library.installed.first { $0.tag == settings.model }?.modelName
         let saved = SettingsSummary.rows(for: settings, modelName: modelName)
         let running = state.runningInfo.map { SettingsSummary.rows(for: $0.settings, modelName: $0.model) }
         return Section("Settings for the next start") {
