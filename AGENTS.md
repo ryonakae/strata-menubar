@@ -28,7 +28,9 @@ open .build/DerivedData/Build/Products/Debug/StrataMenubar.app
 
 1. `build` and `test` succeed with no compiler warnings.
 2. After touching `StrataMenubar/Strata/`: run `RealStrataIntegrationTests` once against a real
-   checkout and confirm `pgrep -f serve/server.py` is empty afterwards.
+   checkout and confirm `pgrep -f serve/server.py` is empty afterwards. After touching the setup or deletion
+   paths (`ModelInstaller`, `SetupOutput`, `ModelFiles`), also download, cancel, resume and delete a pack once in
+   the running app and confirm `pgrep -f setup_mac.py` is empty afterwards.
 3. `git diff --check` is clean; no logs, run configs, models or `.build/` output are tracked.
 
 ## Layout
@@ -44,12 +46,13 @@ open .build/DerivedData/Build/Products/Debug/StrataMenubar.app
   `SetupOutput`), `ModelFiles` (what a deletion moves to the Trash), `RunConfig` + `LaunchPlan` (run config and
   spawn plan), `PosixProcessLauncher`
   (posix_spawn in a new process group), `HealthProbe`, `ServerManager` (the state machine), `StrataModelCatalog`.
-- `StrataMenubar/Views/`: `MenuContent` (the menu), `SettingsView` (draft + Apply), `SettingsSummary` (the saved
-  values as the menu lists them), `WindowCloseGuard`.
+- `StrataMenubar/Views/`: `MenuContent` (the menu), `SettingsView` (draft + Apply, the Models section),
+  `PackStatus+Display` (a pack row's state and why Download cannot run), `SettingsSummary` (the saved values as the
+  menu lists them), `WindowCloseGuard`.
 - `StrataMenubar/Assets.xcassets`: the menu bar S as two template SVGs (`StripeS`, `StripeSOutline`);
   `ServerState+Display` picks one by state.
 - `StrataMenubarTests/`: Swift Testing suites; `Support/Fakes.swift` (fake launcher, process, probe,
-  planner) and `Support/TestInstallation.swift` (a throwaway Strata layout on disk).
+  planner, preparer) and `Support/TestInstallation.swift` (a throwaway Strata layout and data directory on disk).
 - `docs/plans/archived/`: implementation plans with the decisions and validation records.
   `docs/dig/`: the question-and-answer logs behind them. Read these before changing a decision.
 - The Xcode project uses synchronized folders: a new file under `StrataMenubar/` or
@@ -59,22 +62,27 @@ open .build/DerivedData/Build/Products/Debug/StrataMenubar.app
 
 These are the contract with the user; a change needs a new plan, not a quiet edit.
 
-- Never write into the Strata checkout, its model files or any client's configuration. The run config
-  goes to `~/Library/Application Support/StrataMenubar/`, logs to `~/Library/Logs/StrataMenubar/`.
-- Signal only the process group the app spawned. A Strata server it did not start is shown as external
-  and never stopped; a stop that fails keeps ownership and blocks a restart.
+- The app itself never writes into the Strata checkout, its model files or any client's configuration.
+  What changes there is written by the Strata setup the user asked for and by a deletion the user confirmed,
+  which moves files to the Trash. The run config goes to `~/Library/Application Support/StrataMenubar/`, logs to
+  `~/Library/Logs/StrataMenubar/`.
+- Strata's setup runs only as `setup.py --setup --model <MODEL> --no-start --vision no`, for a download or a
+  first-start preparation, one at a time. Its preparation never runs beside a loaded engine: a download is
+  stopped at setup's step 6 while a server is up, and Start waits while setup prepares.
+- Signal only the process groups the app spawned (the server's and setup's). A Strata server or setup it did
+  not start is shown as such and never signalled; a stop that fails keeps ownership and blocks a restart.
 - The server listens on `127.0.0.1` only.
 - Saved settings apply at the next start. Nothing restarts the server except the explicit
   "Stop and Apply" / "Apply and Restart" actions; settings change only in the settings window via Apply, the menu lists them.
-- No automatic restart loops, no adoption of leftover processes, no installing or running Strata's setup.
+- No automatic restart loops, no adoption of leftover processes, no installing or updating Strata itself.
 
 ## Conventions
 
 - Swift 6 language mode with strict concurrency: UI and `ServerManager` are `@MainActor`; anything
   crossing threads is `Sendable` or `@unchecked Sendable` with a lock.
 - Keep the design testable through the existing seams: `ProcessLaunching`, `HealthProbing`,
-  `LaunchPlanning`. Lifecycle behaviour is tested with the fakes; process ownership with real
-  `/bin/sh` fixtures in `PosixProcessLauncherTests`.
+  `LaunchPlanning`, `ModelPreparing`. Lifecycle behaviour is tested with the fakes; process ownership with real
+  `/bin/sh` fixtures in `PosixProcessLauncherTests`, `ModelInstallerTests` and `ModelLibraryTests`.
 - Views have no unit tests; verify UI changes by running the app.
 - Comments explain why, not what. Comments, docs and commits are English. Commit messages follow
   Conventional Commits (`feat:`, `fix:`, `docs:`, ...); never amend, rebase or force-push shared history.
