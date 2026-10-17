@@ -63,6 +63,7 @@ struct SettingsView: View {
             engineSection
             runningSection
             applySection
+            aboutSection
         }
         .formStyle(.grouped)
         .frame(width: 560)
@@ -344,6 +345,19 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
         }
     }
+
+    private var aboutSection: some View {
+        Section {
+            LabeledContent("Version", value: Self.appVersion)
+        }
+    }
+
+    private static let appVersion: String = {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(version) (\(build))"
+    }()
 
     // MARK: - Pieces
 
