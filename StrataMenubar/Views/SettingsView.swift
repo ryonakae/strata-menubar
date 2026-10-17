@@ -66,7 +66,8 @@ struct SettingsView: View {
             aboutSection
         }
         .formStyle(.grouped)
-        .frame(width: 560)
+        .safeAreaInset(edge: .bottom, spacing: 0) { actionBar }
+        .frame(minWidth: 560, idealWidth: 560, minHeight: 480)
         .background(WindowCloseGuard(isDirty: isDirty, discard: revert))
         .onAppear {
             checkInstallation()
@@ -321,6 +322,15 @@ struct SettingsView: View {
 
     private var applySection: some View {
         Section {
+            Text("Applied settings are used at the next start. The menu bar lists them; it does not change them.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Pinned below the scrolling form so that Apply, and why it cannot run, stay in view.
+    private var actionBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
             ForEach(issues) { issue in
                 issueLabel(issue.message, isError: issue.severity == .error)
             }
@@ -340,10 +350,12 @@ struct SettingsView: View {
                     .disabled(!isDirty || hasErrors)
                     .keyboardShortcut(.defaultAction)
             }
-            Text("Applied settings are used at the next start. The menu bar lists them; it does not change them.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
     }
 
     private var aboutSection: some View {

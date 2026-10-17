@@ -115,9 +115,11 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
   catalog order, a non-catalog installed model after them, and an unknown selection last and only when unknown.
   - Done: `ModelLibrary.ModelChoice` and `ModelLibrary.choices(installed:packs:selected:)`; the new test failed
     first (no member `choices`) and passes with the `ModelLibraryTests` suite (6 tests).
-- [ ] Settings window layout: in `StrataMenubar/Views/SettingsView.swift`, add the minimum and ideal frame and
+- [x] Settings window layout: in `StrataMenubar/Views/SettingsView.swift`, add the minimum and ideal frame and
   move the issues and the three buttons into the bottom inset bar, leaving the footnote in the form. In
   `StrataMenubar/App/StrataMenubarApp.swift`, set the `Settings` scene's resizability.
+  - Done: `actionBar` pinned with `.safeAreaInset(edge: .bottom)`; builds without warnings. The window checks in
+    Final Validation are still to be done in the running app.
 - [ ] Docs:
   - `AGENTS.md`:
     - Change the "no dependencies" claim in the header and "there is no package manager" in Commands

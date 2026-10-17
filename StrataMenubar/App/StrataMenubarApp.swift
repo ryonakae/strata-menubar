@@ -29,5 +29,6 @@ struct StrataMenubarApp: App {
                 draftState: container.settingsDraft
             )
         }
+        .windowResizability(.contentMinSize)
     }
 }
