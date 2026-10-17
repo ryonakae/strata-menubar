@@ -77,3 +77,9 @@ Review base commit: `60edd37`。
 - ユーザー決定：未確定入力は破棄（のちに下書き方式へ変更）、導入確認失敗時は「Stop and Apply」無効化、暗黙の既定モデルの永続化は現状維持、⌘Q でも確認、既定ボタンは Keep Editing、終了経路では下書きに触れない、Return を Keep Editing に戻す。
 - 未解決の blocking/high・decision required：なし。残した medium/low は completion report に記載。GUI（サブメニュー、スライダー、Apply / Revert、破棄確認シート、⌘Q の確認、Copy Command）は未検証のままユーザー確認へ引き継ぎ。
 - Final validation：build / test（63件）成功、実Strata統合テストを最終 HEAD で再実行して成功、`git diff --check` clean、Strata の `strata-q2_0.json` と Pi の `models.json` は無変更、作業ツリーに残置なし。
+
+## 2026-10-16 追記: Context の段を 262144 まで拡張
+
+- 変更: `ContextSteps.values` を 1024〜262144 の 2 の累乗 9 段にし、警告の閾値を 8192 超から 32768 超へ移した（`StrataSettings`、`StrataSettingsTests`、README の設定表と注記）。スライダー・メニューの表示は同じリストから導くので他に変更なし。
+- 検証: build / test 79 件成功、コンパイラ警告なし。一時テスト（削除済み）で実 Strata を `--max-context 262144` で起動: 7.5 秒で running、`/health` が `max_context: 262144`、「pong」に応答、stop 後は 8080 が unreachable。engine.log: 262272 cells、arena 前の確保 7.01 GB（32768 では 3.69 GB、8192 では 3.33 GB、約 14.5 KB/token）、arena は 1.7 GB（起動時の空きが 9.2 GB だったため。32768 の起動では空き 12.8 GB で 5.3 GB）。swap used は起動前 2.09 GB → 応答後 5.90 GB、memory_pressure の free は 13%（Xcode など他のプロセスが動く中での計測で、KV だけの効果ではない）。
+- 未検証: 設定画面のスライダーを 262144 まで動かす GUI 操作（エージェントのサンドボックスから設定画面に到達できない）。ユーザー確認へ引き継ぐ。

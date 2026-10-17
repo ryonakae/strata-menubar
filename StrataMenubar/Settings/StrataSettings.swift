@@ -71,8 +71,13 @@ struct StrataSettings: Equatable, Codable, Sendable {
         }
         if maxContext <= 0 {
             issues.append(.error("The context must be a positive number of tokens."))
-        } else if maxContext > 8192 {
-            issues.append(.warning("Contexts over 8192 are untested here and raise memory use."))
+        } else if maxContext > 32768 {
+            issues.append(.warning(
+                "Contexts over 32768 are untested by Strata: it measured the Mac engine to 32K and its setup offers up to 128K. "
+                    + "The KV cache grows with the context: on a 32 GiB Mac the engine allocated 7.0 GB before the expert arena "
+                    + "at 262144 against 3.7 GB at 32768 (about 14.5 KB per token), memory an automatic arena gives up. "
+                    + "The value is kept as you set it."
+            ))
         }
         if !(1024...65535).contains(port) {
             issues.append(.error("The port must be between 1024 and 65535."))
@@ -171,7 +176,7 @@ struct MemoryBudget: Equatable, Sendable {
 
 /// The context sizes offered on the slider.
 enum ContextSteps {
-    static let values = [1024, 2048, 4096, 8192, 16384, 32768]
+    static let values = [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144]
 
     /// The step closest to a value, so that a saved context outside the list still lands somewhere on the slider.
     static func nearestIndex(to value: Int) -> Int {

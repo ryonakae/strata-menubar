@@ -213,11 +213,16 @@ struct StrataSettingsTests {
         #expect(errors(settings).count == 1)
     }
 
-    @Test func warnsAboutContextsAboveTheTestedOneOnly() {
-        var large = StrataSettings.default
-        large.maxContext = 16384
-        #expect(errors(large).isEmpty)
-        #expect(warnings(large).count == 1)
+    @Test func warnsAboutContextsAboveTheMeasured32KOnly() {
+        var beyond = StrataSettings.default
+        beyond.maxContext = 65536
+        #expect(errors(beyond).isEmpty)
+        #expect(warnings(beyond).count == 1)
+        #expect(warnings(beyond)[0].message.contains("32K"))
+
+        var measured = StrataSettings.default
+        measured.maxContext = 32768
+        #expect(measured.validate(memory: memory).isEmpty)
 
         var small = StrataSettings.default
         small.maxContext = 1024
@@ -242,11 +247,12 @@ struct StrataSettingsTests {
     }
 
     @Test func contextStepsArePowersOfTwoAndSnapToTheNearestStep() {
-        #expect(ContextSteps.values == [1024, 2048, 4096, 8192, 16384, 32768])
+        #expect(ContextSteps.values == [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144])
         #expect(ContextSteps.nearestIndex(to: 8192) == 3)
         #expect(ContextSteps.nearestIndex(to: 6144) == 2)
         #expect(ContextSteps.nearestIndex(to: 10000) == 3)
-        #expect(ContextSteps.nearestIndex(to: 100_000) == 5)
+        #expect(ContextSteps.nearestIndex(to: 100_000) == 7)
+        #expect(ContextSteps.nearestIndex(to: 1_000_000) == 8)
         #expect(ContextSteps.nearestIndex(to: 1) == 0)
     }
 }

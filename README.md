@@ -92,7 +92,7 @@ bar only lists the saved values.
 | Model | `q2_0`, else the first installed | One of the `strata-<model>.json` files in the Strata directory. |
 | Expert cache | Auto | With the toggle on, the engine sizes the expert arena itself and `STRATA_METAL_ARENA_GB` is not written. With it off, the slider sets a fixed size in decimal GB, from 1 GB to the Mac's physical memory in 1 GB steps (5 GB when first switched). A cache saved by an earlier version of this app stays fixed. |
 | Keep free for macOS | Engine default | `STRATA_METAL_KEEP_FREE_GB`, only with an automatic cache: what the engine leaves to macOS while it sizes the arena. The engine's own rule is 7 GB or 15% of the RAM, whichever is more; the window shows that number for this Mac. 1 GB steps. |
-| Context (tokens) | 8192 | `--max-context` for the engine. Slider over 1024, 2048, 4096, 8192, 16384 and 32768. |
+| Context (tokens) | 8192 | `--max-context` for the engine. Slider over the powers of two from 1024 to 262144, the model's trained length. |
 | Prompt chunk | Auto | `STRATA_METAL_PROMPT_CHUNK`: 1024, 2048, 4096 or 8192 tokens. Auto is the engine's choice: 2048 for a resident model and, when the experts stream, 4096 from 96 GiB of RAM and 1024 below; the window shows the number for this Mac. |
 | Port | 8080 | Must be between 1024 and 65535; an invalid entry keeps the previous value. |
 | Idle unload | Never | `idle_unload_s`: 5, 10, 15, 30, 60 or 120 minutes without requests, after which the server ends the engine process and starts it again for the next request. |
@@ -107,7 +107,9 @@ sized from what macOS can give and filled in steps. Any value in the offered
 range is accepted; the app only warns, with the reason, for fixed caches under
 2 GB (the engine needs about 1.36 GB of the arena for a prompt's buffers and
 failed at about 0.8 GB) or over half of the Mac's memory, for contexts over
-8192 (untested, more memory), for keeping less than 7 GB for macOS (a 34-minute
+32768 (Strata measured the Mac engine to 32K and its setup offers up to 128K;
+the KV cache took about 14.5 KB per token: 7.0 GB before the expert arena at
+262144 against 3.7 GB at 32768 on a 32 GiB Mac), for keeping less than 7 GB for macOS (a 34-minute
 run that kept 5 GB swapped out 93 MB while the arena filled), for verify windows
 of 5 or more (measured slower) and for prompt chunks above this Mac's default on
 a streaming model (their buffers come out of the arena: 4.3 GB at 4096).
