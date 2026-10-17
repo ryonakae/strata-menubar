@@ -85,8 +85,11 @@ final class ModelLibrary {
         }
     }
 
-    /// Looks for a setup outside the app right now, for a guard that must not act on the last reading.
+    /// Looks for a setup outside the app right now, for a guard that must not act on the last reading. A reading
+    /// still under way in the background is dropped, so that it cannot land after this one.
     func checkExternalSetups() async {
+        externalScan?.cancel()
+        externalScan = nil
         mark(await externalSetups(ownedSetupGroup()))
     }
 
