@@ -26,7 +26,6 @@ struct ModelLibraryTests {
         #expect(library.packs[1].state == .partial(bytes: 5))
         #expect(library.packs[2].state == .downloaded)
         #expect(library.packs[3].state == .notDownloaded)
-        #expect(library.packs.allSatisfy { !$0.busyElsewhere })
         #expect(library.freeBytes ?? 0 > 0)
         #expect(library.dataDirectory.url.path(percentEncoded: false) == install.dataDirectory.path(percentEncoded: false))
         #expect(library.downloadedPack(forTag: "iq3_s")?.name == "IQ3_S")
@@ -75,8 +74,22 @@ struct ModelLibraryTests {
         // A model directory that did not exist when watching began is picked up through `models/` and then watched itself.
         try install.addDownloadedPack(iq3s, bytesPerShard: 3)
         #expect(await waitUntil { library.packs[2].state == .downloaded })
-        try FileManager.default.removeItem(at: library.dataDirectory.modelDirectory(for: iq3s).appending(path: iq3s.shardNames[1] + ".done"))
+        let directory = library.dataDirectory.modelDirectory(for: iq3s)
+        try FileManager.default.removeItem(at: directory.appending(path: iq3s.shardNames[1] + ".done"))
         #expect(await waitUntil { library.packs[2].state == .partial(bytes: 6) })
+
+        // A directory deleted and created again is a new vnode: what is written into it afterwards must still show.
+        try FileManager.default.removeItem(at: directory)
+        #expect(await waitUntil { library.packs[2].state == .notDownloaded })
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for name in iq3s.shardNames {
+            try Data(count: 4).write(to: directory.appending(path: name))
+        }
+        #expect(await waitUntil { library.packs[2].state == .partial(bytes: 8) })
+        for name in iq3s.shardNames {
+            try Data().write(to: directory.appending(path: name + ".done"))
+        }
+        #expect(await waitUntil { library.packs[2].state == .downloaded })
     }
 
     @Test func updatingTheRootRescansWithoutWatchingTheOldOne() async throws {
@@ -90,6 +103,8 @@ struct ModelLibraryTests {
         library.update(root: second.root)
         #expect(library.installed.map(\.tag) == ["iq3_xxs", "q2_0"])
         #expect(library.root.path(percentEncoded: false) == second.root.path(percentEncoded: false))
+        #expect(library.watchedPaths.contains(second.root.path(percentEncoded: false)))
+        #expect(!library.watchedPaths.contains(first.root.path(percentEncoded: false)))
 
         try first.addModel(tag: "stale", modelName: "x")
         try? await Task.sleep(for: .milliseconds(500))
@@ -117,7 +132,7 @@ struct ModelLibraryTests {
         #expect(!library.packs[0].busyElsewhere)
 
         library.ownedSetupGroup = { process.processGroup }
-        library.refresh()
+        await library.checkExternalSetups()
         #expect(!library.packs[2].busyElsewhere)
 
         let anyModel = try launcher.launch(LaunchPlan(
@@ -131,10 +146,10 @@ struct ModelLibraryTests {
         #expect(await refreshed(library) { library.packs.allSatisfy(\.busyElsewhere) })
     }
 
-    /// Each refresh runs pgrep, so the retries are spaced out instead of polled; the other suites share the main actor.
+    /// Each look runs pgrep, so the retries are spaced out instead of polled.
     private func refreshed(_ library: ModelLibrary, until condition: () -> Bool) async -> Bool {
         for _ in 0..<20 {
-            library.refresh()
+            await library.checkExternalSetups()
             if condition() {
                 return true
             }

@@ -34,13 +34,22 @@ final class ModelLibrary {
 
     private let settingsFile: URL
     private let watching: Bool
+    private let externalSetups: (pid_t?) async -> [ExternalSetup]
     @ObservationIgnored private var watchers: [String: DirectoryWatcher] = [:]
     @ObservationIgnored private var pendingRefresh: Task<Void, Never>?
+    @ObservationIgnored private var externalScan: Task<Void, Never>?
 
-    init(root: URL, settingsFile: URL = StrataDataDirectory.defaultSettingsFile, watching: Bool = true) {
+    /// `externalSetups` reads the process table; tests that must not see the host's processes hand in their own.
+    init(
+        root: URL,
+        settingsFile: URL = StrataDataDirectory.defaultSettingsFile,
+        watching: Bool = true,
+        externalSetups: @escaping (pid_t?) async -> [ExternalSetup] = ExternalSetup.running(excludingGroup:)
+    ) {
         self.root = root
         self.settingsFile = settingsFile
         self.watching = watching
+        self.externalSetups = externalSetups
         dataDirectory = StrataDataDirectory.resolve(strataRoot: root, settingsFile: settingsFile)
         refresh()
     }
@@ -51,19 +60,41 @@ final class ModelLibrary {
         refresh()
     }
 
+    /// Reads the directories now; the process table, which says what another setup is working on, follows in the
+    /// background and the last reading stands until it is in.
     func refresh() {
         dataDirectory = StrataDataDirectory.resolve(strataRoot: root, settingsFile: settingsFile)
         let scan = Self.scan(root: root, dataDirectory: dataDirectory)
         installed = scan.installed
-        let external = ExternalSetup.running(excludingGroup: ownedSetupGroup())
+        let previous = packs
         packs = scan.packs.map { status in
             var status = status
-            status.busyElsewhere = external.contains { $0.model == nil || $0.model == status.pack.name }
+            status.busyElsewhere = previous.first { $0.pack == status.pack }?.busyElsewhere ?? false
             return status
         }
         freeBytes = dataDirectory.freeBytes()
         if watching {
             rearmWatchers()
+        }
+        externalScan?.cancel()
+        externalScan = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let external = await externalSetups(ownedSetupGroup())
+            guard !Task.isCancelled else { return }
+            mark(external)
+        }
+    }
+
+    /// Looks for a setup outside the app right now, for a guard that must not act on the last reading.
+    func checkExternalSetups() async {
+        mark(await externalSetups(ownedSetupGroup()))
+    }
+
+    private func mark(_ external: [ExternalSetup]) {
+        packs = packs.map { status in
+            var status = status
+            status.busyElsewhere = external.contains { $0.worksOn(status.pack) }
+            return status
         }
     }
 
@@ -101,12 +132,15 @@ final class ModelLibrary {
 
     // MARK: - Watching
 
+    var watchedPaths: Set<String> { Set(watchers.keys) }
+
     /// A vnode source only reports the directory's own entries, so each model directory gets a source of its own
     /// once it exists; the data directory and `models/` report new directories, after which the next pass arms them.
+    /// A directory deleted and created again is a new vnode, so its stale source is dropped and the path armed anew.
     private func rearmWatchers() {
         let wanted = [root, dataDirectory.url, dataDirectory.models] + packs.map { dataDirectory.modelDirectory(for: $0.pack) }
         let paths = Set(wanted.map { $0.path(percentEncoded: false) })
-        watchers = watchers.filter { paths.contains($0.key) }
+        watchers = watchers.filter { paths.contains($0.key) && !$0.value.isStale }
         for path in paths where watchers[path] == nil {
             watchers[path] = DirectoryWatcher(path: path) { [weak self] in
                 Task { @MainActor in

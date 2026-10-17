@@ -37,6 +37,12 @@ struct StrataDataDirectoryTests {
         try FileManager.default.removeItem(at: data.modelDirectory(for: iq3s).appending(path: iq3s.shardNames[0] + ".part"))
         #expect(data.packState(for: iq3s) == .downloaded)
 
+        // The experts' copy being written during the preparation does not make the download incomplete.
+        let expertsCopy = data.modelDirectory(for: iq3s).appending(path: iq3s.shardNames[0] + ".experts.part")
+        try Data(count: 3).write(to: expertsCopy)
+        #expect(data.packState(for: iq3s) == .downloaded)
+        try FileManager.default.removeItem(at: expertsCopy)
+
         try FileManager.default.removeItem(at: data.modelDirectory(for: iq3s).appending(path: iq3s.shardNames[1] + ".done"))
         #expect(data.packState(for: iq3s) == .partial(bytes: 20))
     }

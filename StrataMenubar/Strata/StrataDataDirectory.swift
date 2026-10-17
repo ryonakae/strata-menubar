@@ -5,7 +5,8 @@ enum PackFilesState: Equatable, Sendable {
     case notDownloaded
     /// Some shard is missing, unfinished (`.part`) or without its `.done` mark; `bytes` is what the directory holds.
     case partial(bytes: Int64)
-    /// Every shard has its `.done` mark and nothing is still being written.
+    /// Every shard is there with its `.done` mark. The experts' copy setup writes beside shard 1 while preparing the
+    /// pack (`<shard>.experts.part`, renamed when done) is not a shard, so a pack stays downloaded while that runs.
     case downloaded
 }
 
@@ -49,8 +50,8 @@ struct StrataDataDirectory: Equatable, Sendable {
         guard !files.isEmpty else {
             return .notDownloaded
         }
-        let complete = pack.shardNames.allSatisfy { names.contains($0) && names.contains($0 + ".done") }
-        if complete, !files.contains(where: { $0.hasSuffix(".part") }) {
+        let complete = pack.shardNames.allSatisfy { names.contains($0) && names.contains($0 + ".done") && !names.contains($0 + ".part") }
+        if complete {
             return .downloaded
         }
         let bytes = files.reduce(Int64(0)) { sum, name in
