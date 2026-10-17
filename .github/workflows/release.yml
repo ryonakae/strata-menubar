@@ -51,12 +51,15 @@ jobs:
           fi
 
           TAG_VERSION="${GITHUB_REF_NAME#v}"
-          PROJECT_VERSIONS="$(grep -E 'MARKETING_VERSION = ' StrataMenubar.xcodeproj/project.pbxproj \
-            | sed -E 's/.*= (.*);/\1/' | sort -u)"
-          if [[ "$PROJECT_VERSIONS" != "$TAG_VERSION" ]]; then
-            echo "MARKETING_VERSION '$PROJECT_VERSIONS' does not match tag version '$TAG_VERSION'" >&2
-            exit 1
-          fi
+          # Sparkle compares CFBundleVersion only, so the build number has to move with every tag.
+          for setting in MARKETING_VERSION CURRENT_PROJECT_VERSION; do
+            VALUES="$(grep -E "$setting = " StrataMenubar.xcodeproj/project.pbxproj \
+              | sed -E 's/.*= (.*);/\1/' | sort -u)"
+            if [[ "$VALUES" != "$TAG_VERSION" ]]; then
+              echo "$setting '$VALUES' does not match tag version '$TAG_VERSION'" >&2
+              exit 1
+            fi
+          done
 
           echo "VERSION=$TAG_VERSION" >> "$GITHUB_ENV"
 
@@ -74,6 +77,7 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           set -euo pipefail
 
@@ -82,7 +86,8 @@ jobs:
             APPLE_CERTIFICATE_PASSWORD \
             APPLE_API_KEY_BASE64 \
             APPLE_API_KEY \
-            APPLE_API_ISSUER; do
+            APPLE_API_ISSUER \
+            SPARKLE_ED_PRIVATE_KEY; do
             if [[ -z "${!name:-}" ]]; then
               echo "Missing release environment value: $name" >&2
               exit 1
@@ -134,9 +139,26 @@ jobs:
             OTHER_CODE_SIGN_FLAGS=--timestamp \
             build
 
-          APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release/StrataMenubar.app"
+          echo "APP_PATH=$RUNNER_TEMP/DerivedData/Build/Products/Release/StrataMenubar.app" >> "$GITHUB_ENV"
+
+      # xcodebuild build re-signs Sparkle.framework but not the helpers inside it, which stay ad-hoc signed:
+      # notarization rejects them, and Sparkle skips its atomic swap when Autoupdate's team differs from the app's.
+      # The XPC services are only for sandboxed apps. Signing goes from the inside out, never with --deep, and
+      # without entitlements so get-task-allow stays out.
+      - name: Re-sign Sparkle helpers
+        run: |
+          set -euo pipefail
+
+          SPARKLE="$APP_PATH/Contents/Frameworks/Sparkle.framework"
+          rm -rf "$SPARKLE/Versions/B/XPCServices" "$SPARKLE/XPCServices"
+          for item in \
+            "$SPARKLE/Versions/B/Autoupdate" \
+            "$SPARKLE/Versions/B/Updater.app" \
+            "$SPARKLE" \
+            "$APP_PATH"; do
+            codesign --force --sign "$APPLE_SIGNING_IDENTITY" --options runtime --timestamp "$item"
+          done
           codesign --verify --strict --deep --verbose=2 "$APP_PATH"
-          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
 
       - name: Build DMG
         run: |
@@ -178,6 +200,31 @@ jobs:
 
           echo "CHECKSUM_PATH=$CHECKSUM_PATH" >> "$GITHUB_ENV"
 
+      # The feed always points at the latest published release, so the appcast only needs this version. It is
+      # generated from the stapled DMG, whose bundle supplies the version and the minimum macOS.
+      - name: Generate appcast
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          APPCAST_DIR="$RUNNER_TEMP/appcast"
+          mkdir -p "$APPCAST_DIR"
+          cp "$DMG_PATH" "$APPCAST_DIR/"
+          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" \
+            | "$RUNNER_TEMP/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast" \
+              --ed-key-file - \
+              --download-url-prefix "$RELEASE_URL/download/$GITHUB_REF_NAME/" \
+              --full-release-notes-url "$RELEASE_URL/tag/$GITHUB_REF_NAME" \
+              --link "https://github.com/${GITHUB_REPOSITORY}" \
+              "$APPCAST_DIR"
+
+          APPCAST_PATH="$APPCAST_DIR/appcast.xml"
+          grep -F "sparkle:edSignature=" "$APPCAST_PATH"
+          grep -F "<sparkle:version>$VERSION</sparkle:version>" "$APPCAST_PATH"
+          echo "APPCAST_PATH=$APPCAST_PATH" >> "$GITHUB_ENV"
+
       - name: Create draft GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -189,9 +236,9 @@ jobs:
               echo "Release $GITHUB_REF_NAME is already published; refusing to replace assets." >&2
               exit 1
             fi
-            gh release upload "$GITHUB_REF_NAME" "$DMG_PATH" "$CHECKSUM_PATH" --clobber
+            gh release upload "$GITHUB_REF_NAME" "$DMG_PATH" "$CHECKSUM_PATH" "$APPCAST_PATH" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" "$DMG_PATH" "$CHECKSUM_PATH" \
+            gh release create "$GITHUB_REF_NAME" "$DMG_PATH" "$CHECKSUM_PATH" "$APPCAST_PATH" \
               --draft \
               --generate-notes \
               --title "StrataMenubar $GITHUB_REF_NAME" \

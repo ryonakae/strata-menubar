@@ -102,13 +102,14 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
   through `AppContainer` and `StrataMenubarApp` to `MenuContent` and `SettingsView`. The menu item goes just
   above "Settings…", and the settings window gets a button on the Version row in `aboutSection`, with the
   version display adjusted as decided above.
-- [ ] Release pipeline: change `.github/workflows/release.yml`.
+- [x] Release pipeline: change `.github/workflows/release.yml`.
   - "Validate release version" also requires `CURRENT_PROJECT_VERSION` to equal the tag.
   - A new step between "Build signed app" and "Build DMG" removes the XPC services and re-signs the nested
     code as decided above.
   - After notarization, a step runs `generate_appcast` with `SPARKLE_ED_PRIVATE_KEY`. That secret is checked
     with the others in "Prepare Apple signing credentials".
   - `appcast.xml` joins the DMG and the checksum in both `gh release create` and `gh release upload`.
+  - Done: actionlint passes; the workflow itself is validated by the v0.2.0 run (Final Validation).
 - [x] Model picker order: add the ordering function to `StrataMenubar/Strata/ModelLibrary.swift`, use it in the
   `modelsSection` picker of `StrataMenubar/Views/SettingsView.swift`, and cover it in
   `StrataMenubarTests/ModelLibraryTests.swift`. The tests cover installed and downloaded packs interleaved in
