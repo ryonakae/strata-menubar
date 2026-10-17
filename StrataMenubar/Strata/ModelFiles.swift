@@ -105,11 +105,13 @@ struct ModelFiles: Equatable, Sendable {
         return ModelFiles(items: items, totalBytes: items.reduce(0) { $0 + size(of: $1, fileManager: fm) })
     }
 
-    /// The paths every other installed config points at.
+    /// The paths every other installed config points at, with what setup left beside its files: a shared shard
+    /// needs its mark and its experts' copy as much as itself.
     private static func sharedPaths(installation: StrataInstallation, except tag: String?) -> [String] {
         installation.installedModels().filter { $0.tag != tag }.flatMap { model -> [String] in
             let references = references(in: model.configURL)
-            return ((references.pack.map { [$0] } ?? []) + references.files).map(normalized)
+            let files = references.files.flatMap { [$0] + siblings(of: $0) }
+            return ((references.pack.map { [$0] } ?? []) + files).map(normalized)
         }
     }
 

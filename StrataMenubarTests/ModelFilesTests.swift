@@ -106,6 +106,12 @@ struct ModelFilesTests {
         defer { layout.remove() }
         try layout.install.addModel(tag: "iq3_xxs", modelName: "qwen3.8-flash-next-iq3_xxs")
         try layout.write(9, to: layout.install.root.appending(path: "run-q2_0.sh"))
+        // What setup leaves beside a shared file belongs to it as much as the file itself.
+        let shard1 = layout.install.dataDirectory.appending(path: "models/Q2_0/model-00001-of-00002.gguf")
+        try layout.write(5, to: shard1)
+        for suffix in [".done", ".experts", ".experts.done"] {
+            try layout.write(2, to: URL(filePath: shard1.path(percentEncoded: false) + suffix))
+        }
 
         let copy = ModelFiles.forInstalled(try layout.model("iq3_xxs"), installation: layout.installation, data: layout.data, paths: layout.paths)
         #expect(paths(copy) == [layout.install.configURL(for: "iq3_xxs").path(percentEncoded: false)])
