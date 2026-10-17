@@ -126,6 +126,17 @@ struct ModelLibraryTests {
             standardOutputLog: install.base.appending(path: "setup.log")
         ))
         defer { try? process.signalGroup(SIGKILL) }
+        // Another look at the process table names setup_mac.py on its own command line; it is no setup.
+        let pgrep = install.base.appending(path: "pgrep")
+        try FileManager.default.createSymbolicLink(at: pgrep, withDestinationURL: URL(filePath: "/bin/sh"))
+        let look = try launcher.launch(LaunchPlan(
+            executable: pgrep,
+            arguments: ["-c", "sleep 300; :", "setup_mac.py"],
+            workingDirectory: install.base,
+            environment: ["PATH": "/usr/bin:/bin"],
+            standardOutputLog: install.base.appending(path: "pgrep.log")
+        ))
+        defer { try? look.signalGroup(SIGKILL) }
         let library = makeLibrary(install)
 
         #expect(await refreshed(library) { library.packs[2].busyElsewhere })

@@ -19,6 +19,10 @@ struct ExternalSetup: Equatable, Sendable {
         return output.split(separator: "\n").compactMap { line in
             let words = line.split(separator: " ").map(String.init)
             guard let first = words.first, let pid = pid_t(first) else { return nil }
+            // pgrep leaves itself out, but not another look running at the same time, whose command line names the script.
+            if words.count > 1, URL(filePath: words[1]).lastPathComponent == "pgrep" {
+                return nil
+            }
             if let excludingGroup, getpgid(pid) == excludingGroup {
                 return nil
             }
