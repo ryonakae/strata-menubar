@@ -34,13 +34,7 @@ Or download `StrataMenubar_<version>_arm64.dmg` from the
 [Releases](https://github.com/ryonakae/strata-menubar/releases) page and drag the
 app to Applications.
 
-The app is ad-hoc signed and not notarized, so macOS blocks the first launch.
-Open it once, then allow it in **System Settings → Privacy & Security → Open
-Anyway**, or clear the quarantine flag:
-
-```sh
-xattr -dr com.apple.quarantine /Applications/StrataMenubar.app
-```
+Release builds are signed with a Developer ID and notarized.
 
 ## Build
 
@@ -50,7 +44,7 @@ xcodebuild -project StrataMenubar.xcodeproj -scheme StrataMenubar -configuration
 ```
 
 The app lands in `.build/DerivedData/Build/Products/Debug/StrataMenubar.app`.
-No Apple developer account is needed; the binary is ad-hoc signed. Start it from
+No Apple developer account is needed; a local build is ad-hoc signed. Start it from
 Finder or with `open .build/DerivedData/Build/Products/Debug/StrataMenubar.app`.
 It shows a stack of layers in the menu bar and nothing in the Dock: solid while the server it
 started is running, dimmed otherwise.

@@ -32,6 +32,15 @@ open .build/DerivedData/Build/Products/Debug/StrataMenubar.app
    a pack once in the running app and confirm `pgrep -f setup_mac.py` is empty afterwards.
 3. `git diff --check` is clean; no logs, run configs, models or `.build/` output are tracked.
 
+## Release
+
+Bump `MARKETING_VERSION` in `project.pbxproj`, commit, then push a `vX.Y.Z` tag.
+`.github/workflows/release.yml` tests, builds with Developer ID signing and the hardened runtime (passed on
+the command line, so the project itself stays ad-hoc signed), notarizes and staples the DMG, and creates a
+draft release. Publishing the draft runs `update-homebrew-cask.yml`, which points
+`ryonakae/homebrew-tap`'s `Casks/strata-menubar.rb` at the new DMG. Signing secrets live in the `release`
+environment, which only `v*` tags can use.
+
 ## Layout
 
 - `StrataMenubar/App/`: `StrataMenubarApp` (MenuBarExtra + Settings scene), `AppDelegate` (quit
