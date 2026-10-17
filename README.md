@@ -65,8 +65,9 @@ Actions:
 - **Start Server** starts `serve/server.py` with the saved settings, bound to
   `127.0.0.1` only. The server and the Metal engine it spawns run in their own
   process group owned by the app. A downloaded model is prepared first (see
-  [Models](#models)). While a download's setup is preparing its model, Start
-  waits until it is done: the preparation must not run beside a loaded engine.
+  [Models](#models)). While a download's setup is preparing its model, Start is
+  unavailable until it is done: the preparation must not run beside a loaded
+  engine.
 - **Stop Server** sends SIGTERM to the server so it can shut the engine down
   itself, waits for that, and then terminates (and if necessary kills)
   whatever is left in the group. Stopping can take up to about two minutes
@@ -100,7 +101,7 @@ bar only lists the saved values.
 
 | Setting | Default | Notes |
 | --- | --- | --- |
-| Strata directory | `~/Strata` | Must contain `.venv`, `serve/server.py` and `setup.py`. The window lists what is missing. |
+| Strata directory | `~/Strata` | Must contain `.venv` and `serve/server.py`, which the window checks; downloads and first-start preparations also run its `setup.py`. |
 | Model | `q2_0`, else the first installed | One of the `strata-<model>.json` files in the Strata directory, or a downloaded pack, which its first start prepares. |
 | Expert cache | Auto | With the toggle on, the engine sizes the expert arena itself and `STRATA_METAL_ARENA_GB` is not written. With it off, the slider sets a fixed size in decimal GB, from 1 GB to the Mac's physical memory in 1 GB steps (5 GB when first switched). A cache saved by an earlier version of this app stays fixed. |
 | Keep free for macOS | Engine default | `STRATA_METAL_KEEP_FREE_GB`, only with an automatic cache: what the engine leaves to macOS while it sizes the arena. The engine's own rule is 7 GB or 15% of the RAM, whichever is more; the window shows that number for this Mac. 1 GB steps. |
@@ -143,8 +144,10 @@ Strata directory and writes a copy with only the managed keys changed to
 `STRATA_METAL_PROMPT_CHUNK` when set; `idle_unload_s` unless Never;
 `fit_max_tokens` when on; the engine log path and the port. A managed key whose
 setting is left to the engine is removed even when the base config carries it;
-everything else, `STRATA_METAL_STREAM` included, is copied as it is. A start
-never modifies the original file, `run-<model>.sh` or the model files.
+everything else, `STRATA_METAL_STREAM` included, is copied as it is. Apart
+from the first-start preparation of a downloaded model, which is Strata's setup
+writing them, a start never modifies the original file, `run-<model>.sh` or the
+model files.
 
 ### Models
 
@@ -175,8 +178,8 @@ the menu, without restarting the app.
   100 GB on disk and must not run beside a loaded engine. When a server is up at
   that point (an external one, or one whose model is unloaded after idle), the
   app stops setup there and the pack is **Downloaded (prepared at the first
-  start)**. Otherwise setup goes on, the pack becomes **Installed**, and Start
-  waits for it.
+  start)**. Otherwise setup goes on, the pack becomes **Installed**, and Start is
+  unavailable until then.
 - A downloaded pack can be picked as the model like an installed one. Its first
   **Start Server**, **Stop and Apply Saved Settings** or **Apply and Restart
   Server** stops the old server, runs the same setup command to prepare the pack
@@ -199,7 +202,8 @@ the menu, without restarting the app.
   another installed model's config points at stay. Delete is disabled while the
   model is running or starting (on an external server too), while the server is
   stopping, and while a setup works on the pack. The saved settings are not
-  changed; a deleted model shows as "(not installed)" in the picker.
+  changed, so a deleted model that was selected stays selected and is reported
+  as not installed.
 
 To set a model up from a terminal instead, run the same setup yourself:
 

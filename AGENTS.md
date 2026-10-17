@@ -28,9 +28,8 @@ open .build/DerivedData/Build/Products/Debug/StrataMenubar.app
 
 1. `build` and `test` succeed with no compiler warnings.
 2. After touching `StrataMenubar/Strata/`: run `RealStrataIntegrationTests` once against a real
-   checkout and confirm `pgrep -f serve/server.py` is empty afterwards. After touching the setup or deletion
-   paths (`ModelInstaller`, `SetupOutput`, `ModelFiles`), also download, cancel, resume and delete a pack once in
-   the running app and confirm `pgrep -f setup_mac.py` is empty afterwards.
+   checkout and confirm `pgrep -f serve/server.py` is empty afterwards; also download, cancel, resume and delete
+   a pack once in the running app and confirm `pgrep -f setup_mac.py` is empty afterwards.
 3. `git diff --check` is clean; no logs, run configs, models or `.build/` output are tracked.
 
 ## Layout
@@ -66,9 +65,11 @@ These are the contract with the user; a change needs a new plan, not a quiet edi
   What changes there is written by the Strata setup the user asked for and by a deletion the user confirmed,
   which moves files to the Trash. The run config goes to `~/Library/Application Support/StrataMenubar/`, logs to
   `~/Library/Logs/StrataMenubar/`.
-- Strata's setup runs only as `setup.py --setup --model <MODEL> --no-start --vision no`, for a download or a
-  first-start preparation, one at a time. Its preparation never runs beside a loaded engine: a download is
-  stopped at setup's step 6 while a server is up, and Start waits while setup prepares.
+- The app runs Strata's setup only as `setup.py --setup --model <MODEL> --no-start --vision no`, for a
+  download or a first-start preparation, one at a time. Its own setup never prepares beside a loaded engine: a
+  download is stopped at setup's step 6 while a server is up, and Start is unavailable while it prepares. A
+  setup started outside the app is only kept from downloads and deletions of its pack; Strata's own check at
+  step 6 guards its preparation.
 - Signal only the process groups the app spawned (the server's and setup's). A Strata server or setup it did
   not start is shown as such and never signalled; a stop that fails keeps ownership and blocks a restart.
 - The server listens on `127.0.0.1` only.

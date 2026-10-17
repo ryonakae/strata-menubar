@@ -49,7 +49,7 @@ struct MenuContent: View {
         }
         .disabled(!serverManager.canStart)
         if installer.isPreparing, let job = installer.job, job.purpose == .download {
-            Text("Start waits until setup has prepared \(job.pack.name)")
+            Text("Start is unavailable until setup has prepared \(job.pack.name)")
         }
         Button("Stop Server") {
             Task { await serverManager.stop() }
