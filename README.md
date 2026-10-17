@@ -1,5 +1,7 @@
 # strata-menubar
 
+<img src="cover.png" alt="The StrataMenubar menu open below its menu bar icon while a server runs" width="596">
+
 A small macOS menu bar app that starts and stops a locally installed
 [Strata](https://github.com/Niko1221/Strata) server running Qwen3.8-Flash-Next,
 lets you pick which model to run, downloads and deletes models, and changes its
