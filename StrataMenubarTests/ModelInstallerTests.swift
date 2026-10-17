@@ -26,13 +26,8 @@ struct ModelInstallerTests {
             library = ModelLibrary(root: install.root, settingsFile: install.base.appending(path: "none.json"), watching: false, externalSetups: { _ in [] })
             self.serverRunning = serverRunning
             let flag = Flag(serverRunning)
-            installer = ModelInstaller(
-                launcher: real ? PosixProcessLauncher() : fake,
-                paths: paths,
-                library: library,
-                serverIsRunning: { flag.value },
-                timing: .fast
-            )
+            installer = ModelInstaller(launcher: real ? PosixProcessLauncher() : fake, paths: paths, library: library, timing: .fast)
+            installer.serverIsRunning = { flag.value }
         }
 
         /// What the fake setup "prints": the launcher's processes write nothing, so the test appends to the log.

@@ -170,7 +170,7 @@ struct PosixProcessLauncherTests {
         await manager.start(settings: .default)
         #expect(manager.state.isStarting)
         let grandchild = try #require(await fixture.grandchild())
-        let server = try #require({ if case .starting(let info) = manager.state { return info.pid } else { return nil } }())
+        let server: pid_t = try #require({ if case .starting(let info) = manager.state { info.pid } else { nil } }())
 
         await manager.stop()
 

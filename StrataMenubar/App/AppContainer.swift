@@ -15,19 +15,21 @@ final class AppContainer {
     private init() {
         let settingsStore = SettingsStore()
         let library = ModelLibrary(root: settingsStore.settings.strataDirectoryURL)
+        let installer = ModelInstaller(launcher: PosixProcessLauncher(), paths: paths, library: library)
         let serverManager = ServerManager(
             launcher: PosixProcessLauncher(),
             probe: URLSessionHealthProbe(),
-            planner: StrataLaunchPlanner(paths: paths)
+            planner: StrataLaunchPlanner(paths: paths),
+            preparer: installer
         )
         // Setup's preparation must not run beside an engine, including one idle unload has paused and one whose stop
         // failed: anything but a server confirmed gone counts as running.
-        let installer = ModelInstaller(launcher: PosixProcessLauncher(), paths: paths, library: library, serverIsRunning: {
+        installer.serverIsRunning = {
             switch serverManager.state {
             case .stopped, .failed: serverManager.ownsProcess
             case .starting, .running, .stopping, .external: true
             }
-        })
+        }
         library.ownedSetupGroup = { [weak installer] in installer?.processGroup }
         self.settingsStore = settingsStore
         modelLibrary = library

@@ -12,9 +12,22 @@ enum ServerState: Equatable, Sendable {
 }
 
 struct StartingInfo: Equatable, Sendable {
-    var pid: pid_t
+    enum Phase: Equatable, Sendable {
+        /// Setup is preparing a downloaded model for its first start; there is no server process yet.
+        case preparing
+        case loading(pid: pid_t)
+    }
+
+    /// The tag being started, which a deletion has to leave alone.
+    var model: String
+    var phase: Phase
     var port: Int
     var since: Date
+
+    var pid: pid_t? {
+        if case .loading(let pid) = phase { return pid }
+        return nil
+    }
 }
 
 struct RunningInfo: Equatable, Sendable {
@@ -62,18 +75,33 @@ enum QuitRequirement: Equatable, Sendable {
     case waitForStop
     case confirmStop(String)
 
-    init(state: ServerState, ownsProcess: Bool) {
+    /// `download` describes a setup run this app owns, which has to be stopped before quitting as much as the server.
+    init(state: ServerState, ownsProcess: Bool, download: String? = nil) {
+        let server: QuitRequirement
         switch state {
         case .starting(let info):
-            self = .confirmStop("The server (PID \(info.pid)) is still starting")
+            server = switch info.phase {
+            case .preparing: .confirmStop("The model \(info.model) is being prepared for its first start")
+            case .loading(let pid): .confirmStop("The server (PID \(pid)) is still starting")
+            }
         case .running(let info):
-            self = .confirmStop("The server (PID \(info.pid)) is running on port \(info.port)")
+            server = .confirmStop("The server (PID \(info.pid)) is running on port \(info.port)")
         case .stopping:
-            self = .waitForStop
+            server = .waitForStop
         case .failed where ownsProcess:
-            self = .confirmStop("A server process started by this app may still be running")
+            server = .confirmStop("A server process started by this app may still be running")
         case .stopped, .external, .failed:
-            self = .none
+            server = .none
+        }
+        guard let download else {
+            self = server
+            return
+        }
+        // A stop that would only be waited for still gets the question, because of the download.
+        if case .confirmStop(let text) = server {
+            self = .confirmStop("\(text), and \(download.prefix(1).lowercased())\(download.dropFirst())")
+        } else {
+            self = .confirmStop(download)
         }
     }
 }

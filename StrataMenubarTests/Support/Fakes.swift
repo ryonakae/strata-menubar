@@ -229,6 +229,48 @@ extension ServerManager.Timing {
     )
 }
 
+/// Stands in for the installer: which models need preparing, and how each preparation ends, is the test's choice.
+@MainActor
+final class FakePreparer: ModelPreparing {
+    var needs: Set<String> = []
+    /// When set, a preparation ends with this at once; otherwise it waits for `finish()`, `fail(_:)` or a cancel.
+    var immediate: Result<Void, any Error>?
+    private(set) var prepared: [String] = []
+    private(set) var cancelled = 0
+    private var pending: CheckedContinuation<Void, any Error>?
+
+    func needsPreparation(model tag: String) -> Bool {
+        needs.contains(tag)
+    }
+
+    func prepare(model tag: String) async throws {
+        prepared.append(tag)
+        if let immediate {
+            return try immediate.get()
+        }
+        try await withCheckedThrowingContinuation { pending = $0 }
+    }
+
+    func cancelPreparation() async {
+        cancelled += 1
+        resolve(.failure(InstallError.cancelled))
+    }
+
+    func finish() {
+        resolve(.success(()))
+    }
+
+    func fail(_ message: String) {
+        resolve(.failure(InstallError.failed(message)))
+    }
+
+    private func resolve(_ result: Result<Void, any Error>) {
+        guard let pending else { return }
+        self.pending = nil
+        pending.resume(with: result)
+    }
+}
+
 extension ModelInstaller.Timing {
     static let fast = ModelInstaller.Timing(
         logPollInterval: .milliseconds(10),

@@ -77,25 +77,20 @@ final class ModelInstaller {
     private(set) var job: InstallJob?
     /// The last run's result, shown until the next run starts.
     private(set) var lastOutcome: InstallOutcome?
+    /// Whether a server is up, which setup's preparation must not run beside; the app wires this to the server
+    /// manager. Until it does, everything counts as running, which at worst stops a download before preparing.
+    var serverIsRunning: @MainActor () -> Bool = { true }
 
     private let launcher: any ProcessLaunching
     private let paths: AppPaths
     private let library: ModelLibrary
-    private let serverIsRunning: @MainActor () -> Bool
     private let timing: Timing
     @ObservationIgnored private var process: (any OwnedProcess)?
 
-    init(
-        launcher: any ProcessLaunching,
-        paths: AppPaths,
-        library: ModelLibrary,
-        serverIsRunning: @escaping @MainActor () -> Bool,
-        timing: Timing = .standard
-    ) {
+    init(launcher: any ProcessLaunching, paths: AppPaths, library: ModelLibrary, timing: Timing = .standard) {
         self.launcher = launcher
         self.paths = paths
         self.library = library
-        self.serverIsRunning = serverIsRunning
         self.timing = timing
     }
 
@@ -344,6 +339,25 @@ final class ModelInstaller {
 
     private static func gigabytes(_ bytes: Int64) -> String {
         String(format: "%.1f", Double(bytes) / 1e9)
+    }
+}
+
+extension ModelInstaller: ModelPreparing {
+    /// A pack whose shards are complete and marked but which has no config yet.
+    func needsPreparation(model tag: String) -> Bool {
+        library.refresh()
+        return library.downloadedPack(forTag: tag) != nil
+    }
+
+    func prepare(model tag: String) async throws {
+        guard let pack = library.downloadedPack(forTag: tag) else {
+            throw InstallError.failed("\(tag) is not a downloaded pack.")
+        }
+        try await prepare(pack)
+    }
+
+    func cancelPreparation() async {
+        await cancel()
     }
 }
 

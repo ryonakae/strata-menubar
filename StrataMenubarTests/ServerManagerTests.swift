@@ -10,12 +10,14 @@ struct ServerManagerTests {
         let launcher = FakeLauncher()
         let planner = FakePlanner()
         let probe: FakeProbe
+        let preparer: FakePreparer
         let manager: ServerManager
 
         @MainActor
         init(probe: FakeProbe) {
             self.probe = probe
-            manager = ServerManager(launcher: launcher, probe: probe, planner: planner, timing: .fast)
+            preparer = FakePreparer()
+            manager = ServerManager(launcher: launcher, probe: probe, planner: planner, preparer: preparer, timing: .fast)
         }
 
         var process: FakeProcess? { launcher.processes.last }
@@ -54,6 +56,85 @@ struct ServerManagerTests {
 
         #expect(h.launcher.processes.count == 1)
         #expect(h.manager.state.isStarting)
+    }
+
+    @Test func aDownloadedModelIsPreparedBeforeItsServerIsSpawned() async {
+        let h = Harness(probe: FakeProbe(script: [.unreachable, .strata(.loaded())]))
+        h.preparer.needs = [settings.model]
+
+        let start = Task { await h.manager.start(settings: settings) }
+        #expect(await waitUntil { h.preparer.prepared == [settings.model] })
+
+        guard case .starting(let info) = h.manager.state else {
+            Issue.record("the preparation is part of starting")
+            return
+        }
+        #expect(info.phase == .preparing)
+        #expect(info.model == settings.model)
+        #expect(info.pid == nil)
+        #expect(h.manager.state.statusText == "Starting on port \(settings.port): preparing \(settings.model)…")
+        #expect(h.launcher.processes.isEmpty)
+        #expect(h.manager.canStop)
+        #expect(!h.manager.canStart)
+        #expect(!h.manager.ownsProcess)
+        #expect(h.manager.quitRequirement == .confirmStop("The model \(settings.model) is being prepared for its first start"))
+
+        h.preparer.finish()
+        await start.value
+        #expect(h.launcher.processes.count == 1)
+        #expect(await waitUntil { h.manager.state.isRunning })
+        #expect(h.manager.state.runningInfo?.pid == h.process?.pid)
+    }
+
+    @Test func aFailedPreparationIsReportedAndSpawnsNothing() async {
+        let h = Harness(probe: FakeProbe(script: [.unreachable, .strata(.loaded())]))
+        h.preparer.needs = [settings.model]
+        h.preparer.immediate = .failure(InstallError.failed("a Strata engine is running"))
+
+        await h.manager.start(settings: settings)
+
+        #expect(h.manager.state == .failed("The model could not be prepared: a Strata engine is running. See the setup log."))
+        #expect(h.launcher.processes.isEmpty)
+        #expect(h.manager.canStart)
+        #expect(!h.manager.ownsProcess)
+    }
+
+    @Test func aStopDuringThePreparationCancelsItAndSpawnsNothing() async {
+        let h = Harness(probe: FakeProbe(script: [.unreachable, .strata(.loaded())]))
+        h.preparer.needs = [settings.model]
+        let start = Task { await h.manager.start(settings: settings) }
+        #expect(await waitUntil { h.preparer.prepared.count == 1 })
+
+        await h.manager.stop()
+        await start.value
+
+        #expect(h.preparer.cancelled == 1)
+        #expect(h.manager.state == .stopped)
+        #expect(h.launcher.processes.isEmpty)
+        #expect(h.manager.canStart)
+    }
+
+    @Test func aRestartStopsTheOldServerBeforePreparingTheNextModel() async {
+        let h = Harness(probe: FakeProbe(script: [.unreachable, .strata(.loaded()), .unreachable, .strata(.loaded(model: "qwen3.8-flash-next-iq3_s"))]))
+        await h.manager.start(settings: settings)
+        #expect(await waitUntil { h.manager.state.isRunning })
+        #expect(h.preparer.prepared.isEmpty)
+        let old = h.process
+        var next = settings
+        next.model = "iq3_s"
+        h.preparer.needs = ["iq3_s"]
+
+        let restart = Task { await h.manager.restart(settings: next) }
+        #expect(await waitUntil { h.preparer.prepared == ["iq3_s"] })
+        #expect(old?.hasExited == true)
+        #expect(h.launcher.processes.count == 1)
+        h.preparer.finish()
+        await restart.value
+
+        #expect(h.launcher.processes.count == 2)
+        #expect(await waitUntil { h.manager.state.isRunning })
+        #expect(h.manager.state.runningInfo?.model == "qwen3.8-flash-next-iq3_s")
+        #expect(h.manager.state.runningInfo?.pid == h.process?.pid)
     }
 
     @Test func anExternalServerIsShownAndNeverSignaled() async {

@@ -1,6 +1,22 @@
 import Foundation
 import Observation
 
+/// Prepares a downloaded model before its first start; the installer does it with Strata's setup.
+@MainActor
+protocol ModelPreparing: AnyObject {
+    func needsPreparation(model tag: String) -> Bool
+    func prepare(model tag: String) async throws
+    func cancelPreparation() async
+}
+
+/// For a manager without an installer: every model counts as ready.
+@MainActor
+final class NoPreparation: ModelPreparing {
+    func needsPreparation(model tag: String) -> Bool { false }
+    func prepare(model tag: String) async throws {}
+    func cancelPreparation() async {}
+}
+
 /// Owns the Strata server process this app starts and publishes its state to the UI.
 ///
 /// Every start, stop and restart runs through one serial queue, so repeated clicks cannot spawn a second process,
@@ -40,6 +56,7 @@ final class ServerManager {
     private let launcher: any ProcessLaunching
     private let probe: any HealthProbing
     private let planner: any LaunchPlanning
+    private let preparer: any ModelPreparing
     private let timing: Timing
 
     private var owned: OwnedServer?
@@ -49,10 +66,17 @@ final class ServerManager {
     private var readiness: Task<Void, Never>?
     private var monitor: Task<Void, Never>?
 
-    init(launcher: any ProcessLaunching, probe: any HealthProbing, planner: any LaunchPlanning, timing: Timing = .standard) {
+    init(
+        launcher: any ProcessLaunching,
+        probe: any HealthProbing,
+        planner: any LaunchPlanning,
+        preparer: any ModelPreparing = NoPreparation(),
+        timing: Timing = .standard
+    ) {
         self.launcher = launcher
         self.probe = probe
         self.planner = planner
+        self.preparer = preparer
         self.timing = timing
     }
 
@@ -71,10 +95,11 @@ final class ServerManager {
         }
     }
 
+    /// While a model is being prepared nothing is owned yet, but the preparation can be stopped.
     var canStop: Bool {
-        guard owned != nil else { return false }
         switch state {
-        case .starting, .running, .failed: return true
+        case .starting: return true
+        case .running, .failed: return owned != nil
         case .stopped, .stopping, .external: return false
         }
     }
@@ -87,6 +112,10 @@ final class ServerManager {
     }
 
     func stop() async {
+        // A preparation waits inside the start's own operation, so its cancel cannot go through the queue.
+        if case .starting(let info) = state, info.phase == .preparing {
+            await preparer.cancelPreparation()
+        }
         await enqueue { [self] in
             guard canStop else { return }
             await stopOwned(reason: .requested)
@@ -186,6 +215,19 @@ final class ServerManager {
         case .unreachable:
             break
         }
+        if preparer.needsPreparation(model: settings.model) {
+            state = .starting(StartingInfo(model: settings.model, phase: .preparing, port: settings.port, since: Date()))
+            do {
+                try await preparer.prepare(model: settings.model)
+            } catch InstallError.cancelled {
+                state = .stopped
+                return
+            } catch {
+                let message = error.localizedDescription
+                state = .failed("The model could not be prepared: \(message)\(message.hasSuffix(".") ? "" : ".") See the setup log.")
+                return
+            }
+        }
         let plan: LaunchPlan
         do {
             plan = try planner.makePlan(settings: settings)
@@ -203,7 +245,7 @@ final class ServerManager {
         generation += 1
         let server = OwnedServer(process: process, generation: generation, settings: settings)
         owned = server
-        state = .starting(StartingInfo(pid: process.pid, port: settings.port, since: Date()))
+        state = .starting(StartingInfo(model: settings.model, phase: .loading(pid: process.pid), port: settings.port, since: Date()))
         watchExit(of: server)
         readiness = Task { @MainActor [self] in
             await awaitReadiness(of: server)

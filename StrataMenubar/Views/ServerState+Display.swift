@@ -14,7 +14,10 @@ extension ServerState {
         case .stopped:
             "Stopped"
         case .starting(let info):
-            "Starting on port \(info.port) (PID \(info.pid))…"
+            switch info.phase {
+            case .preparing: "Starting on port \(info.port): preparing \(info.model)…"
+            case .loading(let pid): "Starting on port \(info.port) (PID \(pid))…"
+            }
         case .running(let info):
             "Running on port \(info.port): \(info.model ?? "unknown model"), context \(info.maxContext.map(String.init) ?? "?")"
                 + (info.isIdleUnloaded ? " (model unloaded after idle; loads on the next request)" : info.health.suffix)
