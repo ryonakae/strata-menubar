@@ -233,6 +233,7 @@ extension ServerManager.Timing {
 @MainActor
 final class FakePreparer: ModelPreparing {
     var needs: Set<String> = []
+    var isPreparing = false
     /// When set, a preparation ends with this at once; otherwise it waits for `finish()`, `fail(_:)` or a cancel.
     var immediate: Result<Void, any Error>?
     private(set) var prepared: [String] = []

@@ -24,9 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return .terminateLater
     }
 
-    /// A preparation belongs to the server's start and shows in its state; a download is a run of its own.
+    /// A preparation belongs to the server's start and shows in its state; a download, or a group a run left
+    /// behind, is a run of its own.
     private func downloadDescription(_ installer: ModelInstaller) -> String? {
-        installer.job?.purpose == .download ? installer.quitDescription : nil
+        installer.job?.purpose == .prepare ? nil : installer.quitDescription
     }
 
     /// Stops whatever the app owns and only then allows the quit. Setup goes first: it is never left running, and
@@ -35,8 +36,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func settleBeforeQuit(_ manager: ServerManager, _ installer: ModelInstaller) async -> Bool {
         if installer.ownsProcess {
             await installer.cancel()
-            if installer.ownsProcess {
-                return confirmQuitLeavingProcess(what: "Setup")
+            // Quitting anyway still stops the server: the first question promised to stop everything.
+            if installer.ownsProcess, !confirmQuitLeavingProcess(what: "Setup") {
+                return false
             }
         }
         while true {

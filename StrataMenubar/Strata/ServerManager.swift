@@ -4,6 +4,8 @@ import Observation
 /// Prepares a downloaded model before its first start; the installer does it with Strata's setup.
 @MainActor
 protocol ModelPreparing: AnyObject {
+    /// Setup is preparing a model on a run of its own, which moves well over 100 GB on disk: no engine may load beside it.
+    var isPreparing: Bool { get }
     func needsPreparation(model tag: String) -> Bool
     func prepare(model tag: String) async throws
     func cancelPreparation() async
@@ -12,6 +14,7 @@ protocol ModelPreparing: AnyObject {
 /// For a manager without an installer: every model counts as ready.
 @MainActor
 final class NoPreparation: ModelPreparing {
+    var isPreparing: Bool { false }
     func needsPreparation(model tag: String) -> Bool { false }
     func prepare(model tag: String) async throws {}
     func cancelPreparation() async {}
@@ -88,7 +91,7 @@ final class ServerManager {
     }
 
     var canStart: Bool {
-        guard owned == nil else { return false }
+        guard owned == nil, !preparer.isPreparing else { return false }
         switch state {
         case .stopped, .failed: return true
         case .starting, .running, .stopping, .external: return false

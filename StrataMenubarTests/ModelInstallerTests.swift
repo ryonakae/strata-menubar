@@ -81,10 +81,12 @@ struct ModelInstallerTests {
         try Data().write(to: directory.appending(path: iq3s.shardNames[0] + ".done"))
         try h.append("\r  \(iq3s.shardNames[1]): 2.00 / 41.80 GB (4%)")
         #expect(await waitUntil { h.installer.job?.progress?.haveBytes == 2_000_000_005 })
+        #expect(!h.installer.isPreparing)
 
         try h.append("\n=== Step 6: preparing the model for Strata ===\n")
         #expect(await waitUntil { h.installer.job?.phase == .preparing })
         #expect(h.installer.statusLine == "Preparing IQ3_S…")
+        #expect(h.installer.isPreparing)
         #expect(h.process?.signals.isEmpty == true)
         try h.append("=== Step 7: writing the start script ===\n")
         try h.install.addModel(tag: "iq3_s", modelName: "qwen3.8-flash-next-iq3_s")
@@ -95,6 +97,7 @@ struct ModelInstallerTests {
         #expect(h.installer.lastOutcome == .installed(iq3s))
         #expect(!h.installer.ownsProcess)
         #expect(h.installer.quitDescription == nil)
+        #expect(!h.installer.isPreparing)
         #expect(h.library.installed.map(\.tag) == ["iq3_s", "q2_0"])
         #expect(h.installer.statusLine == "IQ3_S installed")
     }
@@ -154,6 +157,22 @@ struct ModelInstallerTests {
         #expect(!h.installer.ownsProcess)
         #expect(h.installer.statusLine == "Setup of IQ3_S stopped; the next Download or start resumes it")
         #expect(h.library.packs[2].state == .partial(bytes: 7))
+    }
+
+    /// A group that survives even SIGKILL stays owned after its run, so that quitting still has to deal with it.
+    @Test func aGroupThatOutlivesItsRunStaysOwnedAndKeepsQuitAsking() async throws {
+        let h = try Harness()
+        defer { h.remove() }
+        h.fake.nextBehavior = FakeProcess.Behavior(exitsOnGroupSignal: [], groupSurvivesProcessExit: true, groupDiesOnSignal: [])
+        let run = Task { await h.installer.download(iq3s) }
+        #expect(await waitUntil { h.installer.job != nil })
+
+        h.process?.exit(with: .exited(1))
+        await run.value
+        #expect(h.installer.job == nil)
+        #expect(h.installer.lastOutcome == .failed(iq3s, "Setup's process group 1000 is still alive. Check Activity Monitor, then try again."))
+        #expect(h.installer.ownsProcess)
+        #expect(h.installer.quitDescription == "A setup process started by this app (process group 1000) may still be running")
     }
 
     @Test func refusesAnInstalledPackAndASecondRunAndReportsAnUnexplainedExit() async throws {

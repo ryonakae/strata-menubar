@@ -99,7 +99,9 @@ final class ModelInstaller {
     var processGroup: pid_t? { process?.processGroup }
 
     var quitDescription: String? {
-        guard let job else { return nil }
+        guard let job else {
+            return process.map { "A setup process started by this app (process group \($0.processGroup)) may still be running" }
+        }
         return switch job.purpose {
         case .download: "A download of \(job.pack.name) (PID \(job.pid)) is running"
         case .prepare: "The preparation of \(job.pack.name) (PID \(job.pid)) is running"
@@ -343,6 +345,11 @@ final class ModelInstaller {
 }
 
 extension ModelInstaller: ModelPreparing {
+    /// From setup's step 6 on: the download was not interrupted there, so it prepares the pack itself.
+    var isPreparing: Bool {
+        job?.phase == .preparing || job?.phase == .writingConfig
+    }
+
     /// A pack whose shards are complete and marked but which has no config yet.
     func needsPreparation(model tag: String) -> Bool {
         library.refresh()

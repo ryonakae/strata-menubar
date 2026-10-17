@@ -86,6 +86,22 @@ struct ServerManagerTests {
         #expect(h.manager.state.runningInfo?.pid == h.process?.pid)
     }
 
+    /// A download that reached setup's preparation goes on without a server; no engine may load beside it.
+    @Test func noServerStartsWhileSetupPreparesAModel() async {
+        let h = Harness(probe: FakeProbe(script: [.unreachable, .strata(.loaded())]))
+        h.preparer.isPreparing = true
+
+        #expect(!h.manager.canStart)
+        await h.manager.start(settings: settings)
+        #expect(h.launcher.processes.isEmpty)
+        #expect(h.manager.state == .stopped)
+
+        h.preparer.isPreparing = false
+        #expect(h.manager.canStart)
+        await h.manager.start(settings: settings)
+        #expect(h.launcher.processes.count == 1)
+    }
+
     @Test func aFailedPreparationIsReportedAndSpawnsNothing() async {
         let h = Harness(probe: FakeProbe(script: [.unreachable, .strata(.loaded())]))
         h.preparer.needs = [settings.model]
