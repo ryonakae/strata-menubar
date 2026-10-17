@@ -90,7 +90,7 @@ struct MenuContent: View {
         Button("Settings…") { showSettings() }
             .keyboardShortcut(",")
         Divider()
-        Button("Quit Strata Menubar") {
+        Button("Quit StrataMenubar") {
             NSApp.terminate(nil)
         }
         .keyboardShortcut("q")
