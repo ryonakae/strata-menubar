@@ -283,7 +283,7 @@ struct ServerManagerTests {
         #expect(h.manager.state.runningInfo?.isIdleUnloaded == true)
         #expect(h.manager.state.statusText.contains("unloaded after idle"))
         #expect(!h.manager.state.statusText.contains("health check"))
-        #expect(h.manager.state.symbolName == "moon.circle")
+        #expect(h.manager.state.menuBarIcon == .stripeS)
         #expect(h.launcher.processes.count == 1)
         #expect(h.process?.signals.isEmpty == true)
         h.manager.stopMonitoring()
@@ -297,7 +297,7 @@ struct ServerManagerTests {
         #expect(await waitUntil { plain.manager.state.runningInfo?.health == .notLoaded })
         #expect(plain.manager.state.runningInfo?.isIdleUnloaded == false)
         #expect(plain.manager.state.statusText.contains("health check: model not loaded"))
-        #expect(plain.manager.state.symbolName == "exclamationmark.circle")
+        #expect(plain.manager.state.menuBarIcon == .stripeS)
         plain.manager.stopMonitoring()
     }
 

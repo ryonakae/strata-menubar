@@ -1,18 +1,11 @@
-import Foundation
+import SwiftUI
 
 extension ServerState {
-    var symbolName: String {
+    /// The S is filled only while this app's own server runs; health, idle unload and failures stay in the status line.
+    var menuBarIcon: ImageResource {
         switch self {
-        case .stopped: "stop.circle"
-        case .starting, .stopping: "clock"
-        case .running(let info):
-            if info.isIdleUnloaded {
-                "moon.circle"
-            } else {
-                info.health == .ok ? "checkmark.circle.fill" : "exclamationmark.circle"
-            }
-        case .external: "eye.circle"
-        case .failed: "exclamationmark.triangle.fill"
+        case .running: .stripeS
+        case .stopped, .starting, .stopping, .external, .failed: .stripeSOutline
         }
     }
 

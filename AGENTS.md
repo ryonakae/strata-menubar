@@ -42,6 +42,8 @@ open .build/DerivedData/Build/Products/Debug/StrataMenubar.app
   (posix_spawn in a new process group), `HealthProbe`, `ServerManager` (the state machine), `StrataModelCatalog`.
 - `StrataMenubar/Views/`: `MenuContent` (the menu), `SettingsView` (draft + Apply), `SettingsSummary` (the saved
   values as the menu lists them), `WindowCloseGuard`.
+- `StrataMenubar/Assets.xcassets`: the menu bar S as two template SVGs (`StripeS`, `StripeSOutline`);
+  `ServerState+Display` picks one by state.
 - `StrataMenubarTests/`: Swift Testing suites; `Support/Fakes.swift` (fake launcher, process, probe,
   planner) and `Support/TestInstallation.swift` (a throwaway Strata layout on disk).
 - `docs/plans/archived/`: implementation plans with the decisions and validation records.

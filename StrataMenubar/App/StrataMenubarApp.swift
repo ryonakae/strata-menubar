@@ -13,7 +13,7 @@ struct StrataMenubarApp: App {
                 paths: container.paths
             )
         } label: {
-            Image(systemName: container.serverManager.state.symbolName)
+            Image(container.serverManager.state.menuBarIcon)
         }
         .menuBarExtraStyle(.menu)
 
