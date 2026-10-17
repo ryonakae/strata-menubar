@@ -11,6 +11,7 @@ struct StrataMenubarApp: App {
                 serverManager: container.serverManager,
                 settingsStore: container.settingsStore,
                 library: container.modelLibrary,
+                installer: container.modelInstaller,
                 paths: container.paths
             )
         } label: {
@@ -23,6 +24,8 @@ struct StrataMenubarApp: App {
                 settingsStore: container.settingsStore,
                 serverManager: container.serverManager,
                 library: container.modelLibrary,
+                installer: container.modelInstaller,
+                paths: container.paths,
                 draftState: container.settingsDraft
             )
         }

@@ -82,13 +82,6 @@ struct StrataModelCatalogTests {
         #expect(plan.standardOutputLog == log)
     }
 
-    @Test func buildsTheSetupCommandWithAQuotedDirectory() {
-        let command = SetupCommand.make(strataDirectory: "/Users/x/Dev local/Str\"ata", model: "IQ3_XXS")
-        #expect(command == "cd \"/Users/x/Dev local/Str\\\"ata\" && ./setup.sh --setup --model IQ3_XXS --no-start")
-        #expect(SetupCommand.make(strataDirectory: "~/Strata", model: "Q2_0") == "cd \"\(NSHomeDirectory())/Strata\" && ./setup.sh --setup --model Q2_0 --no-start")
-        #expect(SetupCommand.make(strataDirectory: "/a\\b", model: "Q2_0") == "cd \"/a\\\\b\" && ./setup.sh --setup --model Q2_0 --no-start")
-    }
-
     private func approximately(_ value: Double, _ expected: Double) -> Bool {
         abs(value - expected) < 0.01
     }

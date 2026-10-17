@@ -119,15 +119,3 @@ enum SetupPlan {
         )
     }
 }
-
-/// The shell command that installs another model with Strata's own setup. `--no-start` keeps setup from starting a
-/// server of its own, which this app would only see as an external one.
-enum SetupCommand {
-    static func make(strataDirectory: String, model: String) -> String {
-        let path = (strataDirectory.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
-        let quoted = path
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        return "cd \"\(quoted)\" && ./setup.sh --setup --model \(model) --no-start"
-    }
-}

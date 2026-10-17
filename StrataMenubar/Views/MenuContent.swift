@@ -5,6 +5,7 @@ struct MenuContent: View {
     let serverManager: ServerManager
     let settingsStore: SettingsStore
     let library: ModelLibrary
+    let installer: ModelInstaller
     let paths: AppPaths
     @Environment(\.openSettings) private var openSettings
 
@@ -37,6 +38,9 @@ struct MenuContent: View {
         if unappliedSettings {
             Text("Saved settings differ from the running server")
         }
+        if let line = installer.statusLine {
+            Button(line) { showSettings() }
+        }
         Divider()
         settingsSection
         Divider()
@@ -44,6 +48,9 @@ struct MenuContent: View {
             Task { await serverManager.start(settings: settings) }
         }
         .disabled(!serverManager.canStart)
+        if installer.isPreparing, let job = installer.job, job.purpose == .download {
+            Text("Start waits until setup has prepared \(job.pack.name)")
+        }
         Button("Stop Server") {
             Task { await serverManager.stop() }
         }
@@ -72,8 +79,9 @@ struct MenuContent: View {
         }
         .disabled(chatURL == nil)
         Divider()
-        Button("Open Server Log") { open(log: paths.serverLog) }
-        Button("Open Engine Log") { open(log: paths.engineLog) }
+        Button("Open Server Log") { paths.openLog(paths.serverLog) }
+        Button("Open Engine Log") { paths.openLog(paths.engineLog) }
+        Button("Open Setup Log") { paths.openLog(paths.setupLog) }
         Button("Show Logs in Finder") {
             try? FileManager.default.createDirectory(at: paths.logs, withIntermediateDirectories: true)
             NSWorkspace.shared.open(paths.logs)
@@ -111,13 +119,17 @@ struct MenuContent: View {
         NSApp.activate()
         openSettings()
     }
+}
 
-    private func open(log: URL) {
+extension AppPaths {
+    /// A log that has not been written yet opens its folder instead.
+    @MainActor
+    func openLog(_ log: URL) {
         if FileManager.default.fileExists(atPath: log.path(percentEncoded: false)) {
             NSWorkspace.shared.open(log)
         } else {
-            try? FileManager.default.createDirectory(at: paths.logs, withIntermediateDirectories: true)
-            NSWorkspace.shared.open(paths.logs)
+            try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+            NSWorkspace.shared.open(logs)
         }
     }
 }
