@@ -22,6 +22,26 @@ you ask for it; a deletion moves a model's files to the Trash after asking.
   Models set up from a terminal (a `strata-<model>.json`, for example
   `strata-q2_0.json`) are picked up, and more can be downloaded from the app.
 
+## Install
+
+Install with [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask ryonakae/tap/strata-menubar
+```
+
+Or download `StrataMenubar_<version>_arm64.dmg` from the
+[Releases](https://github.com/ryonakae/strata-menubar/releases) page and drag the
+app to Applications.
+
+The app is ad-hoc signed and not notarized, so macOS blocks the first launch.
+Open it once, then allow it in **System Settings → Privacy & Security → Open
+Anyway**, or clear the quarantine flag:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/StrataMenubar.app
+```
+
 ## Build
 
 ```sh
