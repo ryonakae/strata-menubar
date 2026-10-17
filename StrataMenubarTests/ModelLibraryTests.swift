@@ -157,6 +157,29 @@ struct ModelLibraryTests {
         #expect(await refreshed(library) { library.packs.allSatisfy(\.busyElsewhere) })
     }
 
+    /// The picker lists models in the order of the pack rows, whatever order the config files sort in.
+    @Test func modelChoicesFollowTheCatalogThenCustomConfigs() {
+        let custom = InstalledModel(tag: "aaa-custom", modelName: "custom", configURL: URL(filePath: "/x/strata-aaa-custom.json"))
+        let installedIQ3S = InstalledModel(tag: "iq3_s", modelName: "iq3s", configURL: URL(filePath: "/x/strata-iq3_s.json"))
+        let installedQ2 = InstalledModel(tag: "q2_0", modelName: "q2", configURL: URL(filePath: "/x/strata-q2_0.json"))
+        let packs: [ModelLibrary.PackStatus] = [
+            .init(pack: q2, state: .installed(installedQ2)),
+            .init(pack: iq3xxs, state: .downloaded),
+            .init(pack: iq3s, state: .installed(installedIQ3S)),
+            .init(pack: StrataModelCatalog.packs[3], state: .partial(bytes: 5)),
+        ]
+        let installed = [custom, installedIQ3S, installedQ2]
+
+        let choices = ModelLibrary.choices(installed: installed, packs: packs, selected: "iq3_s")
+        #expect(choices.map(\.tag) == ["q2_0", "iq3_xxs", "iq3_s", "aaa-custom"])
+        #expect(choices[1] == .downloaded(iq3xxs))
+        #expect(choices[3] == .installed(custom))
+
+        let withUnknown = ModelLibrary.choices(installed: installed, packs: packs, selected: "gone")
+        #expect(withUnknown.map(\.tag) == ["q2_0", "iq3_xxs", "iq3_s", "aaa-custom", "gone"])
+        #expect(withUnknown.last == .unknown(tag: "gone"))
+    }
+
     /// Each look runs pgrep, so the retries are spaced out instead of polled.
     private func refreshed(_ library: ModelLibrary, until condition: () -> Bool) async -> Bool {
         for _ in 0..<20 {

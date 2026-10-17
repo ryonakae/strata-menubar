@@ -118,22 +118,22 @@ struct SettingsView: View {
 
     private var modelsSection: some View {
         let listing = listing
-        let downloaded = listing.packs.filter { $0.state == .downloaded }.map(\.pack)
-        let known = listing.installed.contains { $0.tag == draft.model } || downloaded.contains { $0.tag == draft.model }
+        let choices = ModelLibrary.choices(installed: listing.installed, packs: listing.packs, selected: draft.model)
         return Section("Models") {
-            if listing.installed.isEmpty, downloaded.isEmpty {
+            if listing.installed.isEmpty, !listing.packs.contains(where: { $0.state == .downloaded }) {
                 Text("No model is installed or downloaded in the Strata directory yet. Download one below.")
                     .foregroundStyle(.secondary)
             } else {
                 Picker("Model", selection: $draft.model) {
-                    ForEach(listing.installed) { model in
-                        Text("\(model.modelName) (\(model.configURL.lastPathComponent))").tag(model.tag)
-                    }
-                    ForEach(downloaded) { pack in
-                        Text("\(pack.name) (downloaded; prepared at the first start)").tag(pack.tag)
-                    }
-                    if !known {
-                        Text("\(draft.model) (not installed)").tag(draft.model)
+                    ForEach(choices) { choice in
+                        switch choice {
+                        case .installed(let model):
+                            Text("\(model.modelName) (\(model.configURL.lastPathComponent))").tag(model.tag)
+                        case .downloaded(let pack):
+                            Text("\(pack.name) (downloaded; prepared at the first start)").tag(pack.tag)
+                        case .unknown(let tag):
+                            Text("\(tag) (not installed)").tag(tag)
+                        }
                     }
                 }
             }

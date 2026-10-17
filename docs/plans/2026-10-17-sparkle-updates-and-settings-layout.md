@@ -80,7 +80,10 @@ Decisions: [docs/dig/2026-10-17-sparkle-updates.md](../dig/2026-10-17-sparkle-up
 
 ## Tasks
 
-- [ ] Sparkle package: add `https://github.com/sparkle-project/Sparkle`, exactly 2.10.0, product `Sparkle`, to
+Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, belong to this plan).
+
+
+- [x] Sparkle package: add `https://github.com/sparkle-project/Sparkle`, exactly 2.10.0, product `Sparkle`, to
   the app target in `StrataMenubar.xcodeproj/project.pbxproj`, and commit
   `project.xcworkspace/xcshareddata/swiftpm/Package.resolved`. `.gitignore` only ignores `xcuserdata/`.
   - Do this before the key task: `generate_keys` comes from the package artifacts.
@@ -106,10 +109,12 @@ Decisions: [docs/dig/2026-10-17-sparkle-updates.md](../dig/2026-10-17-sparkle-up
   - After notarization, a step runs `generate_appcast` with `SPARKLE_ED_PRIVATE_KEY`. That secret is checked
     with the others in "Prepare Apple signing credentials".
   - `appcast.xml` joins the DMG and the checksum in both `gh release create` and `gh release upload`.
-- [ ] Model picker order: add the ordering function to `StrataMenubar/Strata/ModelLibrary.swift`, use it in the
+- [x] Model picker order: add the ordering function to `StrataMenubar/Strata/ModelLibrary.swift`, use it in the
   `modelsSection` picker of `StrataMenubar/Views/SettingsView.swift`, and cover it in
   `StrataMenubarTests/ModelLibraryTests.swift`. The tests cover installed and downloaded packs interleaved in
   catalog order, a non-catalog installed model after them, and an unknown selection last and only when unknown.
+  - Done: `ModelLibrary.ModelChoice` and `ModelLibrary.choices(installed:packs:selected:)`; the new test failed
+    first (no member `choices`) and passes with the `ModelLibraryTests` suite (6 tests).
 - [ ] Settings window layout: in `StrataMenubar/Views/SettingsView.swift`, add the minimum and ideal frame and
   move the issues and the three buttons into the bottom inset bar, leaving the footnote in the form. In
   `StrataMenubar/App/StrataMenubarApp.swift`, set the `Settings` scene's resizability.

@@ -24,6 +24,43 @@ final class ModelLibrary {
         var id: String { pack.name }
     }
 
+    /// An entry of the settings window's model picker.
+    enum ModelChoice: Identifiable, Equatable {
+        case installed(InstalledModel)
+        /// Every shard is on disk but the first start still has to prepare it.
+        case downloaded(ModelPack)
+        /// The selected model is neither installed nor downloaded; it stays listed so the selection remains visible.
+        case unknown(tag: String)
+
+        var tag: String {
+            switch self {
+            case .installed(let model): model.tag
+            case .downloaded(let pack): pack.tag
+            case .unknown(let tag): tag
+            }
+        }
+
+        var id: String { tag }
+    }
+
+    /// The picker follows the pack rows so a model keeps its place whether it is downloaded or installed; configs
+    /// that no pack produced follow by tag.
+    static func choices(installed: [InstalledModel], packs: [PackStatus], selected: String) -> [ModelChoice] {
+        var choices: [ModelChoice] = packs.compactMap { status in
+            switch status.state {
+            case .installed(let model): .installed(model)
+            case .downloaded: .downloaded(status.pack)
+            case .partial, .notDownloaded: nil
+            }
+        }
+        let packTags = Set(packs.map(\.pack.tag))
+        choices += installed.filter { !packTags.contains($0.tag) }.sorted { $0.tag < $1.tag }.map { .installed($0) }
+        if !choices.contains(where: { $0.tag == selected }) {
+            choices.append(.unknown(tag: selected))
+        }
+        return choices
+    }
+
     private(set) var root: URL
     private(set) var dataDirectory: StrataDataDirectory
     private(set) var installed: [InstalledModel] = []
