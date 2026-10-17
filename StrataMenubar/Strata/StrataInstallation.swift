@@ -19,6 +19,7 @@ struct StrataInstallation: Equatable, Sendable {
 
     var python: URL { root.appending(path: ".venv/bin/python") }
     var server: URL { root.appending(path: "serve/server.py") }
+    var setupScript: URL { root.appending(path: "setup.py") }
 
     func configURL(for tag: String) -> URL {
         root.appending(path: "\(Self.configPrefix)\(tag).json")

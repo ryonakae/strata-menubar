@@ -22,4 +22,6 @@ struct AppPaths: Equatable, Sendable {
 
     var serverLog: URL { logs.appending(path: "server.log") }
     var engineLog: URL { logs.appending(path: "engine.log") }
+    /// Setup's output, appended across runs; the progress is read from here.
+    var setupLog: URL { logs.appending(path: "setup.log") }
 }

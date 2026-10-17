@@ -1,6 +1,6 @@
 import Foundation
 
-/// Keeps the two log files from growing without bound: a file over the limit is moved aside once at the next launch.
+/// Keeps the log files from growing without bound: a file over the limit is moved aside once at the next launch.
 struct LogStore: Sendable {
     static let rotateAboveBytes: UInt64 = 10_000_000
 
@@ -12,6 +12,12 @@ struct LogStore: Sendable {
         for log in [paths.serverLog, paths.engineLog] {
             try rotateIfLarge(log, fileManager: fm)
         }
+    }
+
+    func prepareForSetup() throws {
+        let fm = FileManager.default
+        try fm.createDirectory(at: paths.logs, withIntermediateDirectories: true)
+        try rotateIfLarge(paths.setupLog, fileManager: fm)
     }
 
     private func rotateIfLarge(_ log: URL, fileManager fm: FileManager) throws {

@@ -69,6 +69,19 @@ struct StrataModelCatalogTests {
         #expect(approximately(packs[2].requiredFreeGB(memory: smallMac), 145.4))
     }
 
+    @Test func plansTheSetupRunThroughTheCheckoutsInterpreter() throws {
+        let install = try TestInstallation.make()
+        defer { install.remove() }
+        let log = URL(filePath: "/tmp/logs/setup.log")
+        let plan = SetupPlan.make(installation: StrataInstallation(root: install.root), pack: StrataModelCatalog.packs[2], log: log)
+        #expect(plan.executable == install.python)
+        #expect(plan.arguments == [install.root.appending(path: "setup.py").path(percentEncoded: false), "--setup", "--model", "IQ3_S", "--no-start", "--vision", "no"])
+        #expect(plan.workingDirectory == install.root)
+        #expect(plan.environment["PYTHONUNBUFFERED"] == "1")
+        #expect(plan.environment["PATH"] == ProcessInfo.processInfo.environment["PATH"])
+        #expect(plan.standardOutputLog == log)
+    }
+
     @Test func buildsTheSetupCommandWithAQuotedDirectory() {
         let command = SetupCommand.make(strataDirectory: "/Users/x/Dev local/Str\"ata", model: "IQ3_XXS")
         #expect(command == "cd \"/Users/x/Dev local/Str\\\"ata\" && ./setup.sh --setup --model IQ3_XXS --no-start")

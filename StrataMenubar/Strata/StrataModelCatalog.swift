@@ -104,6 +104,22 @@ enum StrataModelCatalog {
     }
 }
 
+/// The spawn of Strata's own setup for one pack, through the same launcher as the server. `--no-start` keeps setup
+/// from starting a server of its own, which this app would only see as an external one, and `--vision no` answers
+/// its only other question, so that it runs without a terminal. The same run resumes a download and prepares a
+/// pack whose shards are complete.
+enum SetupPlan {
+    static func make(installation: StrataInstallation, pack: ModelPack, log: URL) -> LaunchPlan {
+        LaunchPlan(
+            executable: installation.python,
+            arguments: [installation.setupScript.path(percentEncoded: false), "--setup", "--model", pack.name, "--no-start", "--vision", "no"],
+            workingDirectory: installation.root,
+            environment: ProcessInfo.processInfo.environment.merging(["PYTHONUNBUFFERED": "1"]) { _, new in new },
+            standardOutputLog: log
+        )
+    }
+}
+
 /// The shell command that installs another model with Strata's own setup. `--no-start` keeps setup from starting a
 /// server of its own, which this app would only see as an external one.
 enum SetupCommand {

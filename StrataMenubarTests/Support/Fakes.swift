@@ -229,6 +229,16 @@ extension ServerManager.Timing {
     )
 }
 
+extension ModelInstaller.Timing {
+    static let fast = ModelInstaller.Timing(
+        logPollInterval: .milliseconds(10),
+        interruptTimeout: .milliseconds(50),
+        terminateTimeout: .milliseconds(50),
+        killTimeout: .milliseconds(200),
+        pollInterval: .milliseconds(5)
+    )
+}
+
 /// Polls a main-actor condition instead of sleeping for a fixed time.
 @MainActor
 func waitUntil(timeout: Duration = .seconds(3), _ condition: @MainActor () -> Bool) async -> Bool {
