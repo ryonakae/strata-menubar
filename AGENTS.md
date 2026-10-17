@@ -68,8 +68,7 @@ These are the contract with the user; a change needs a new plan, not a quiet edi
 - The app runs Strata's setup only as `setup.py --setup --model <MODEL> --no-start --vision no`, for a
   download or a first-start preparation, one at a time. Its own setup never prepares beside a loaded engine: a
   download is stopped at setup's step 6 while a server is up, and Start is unavailable while it prepares. A
-  setup started outside the app is only kept from downloads and deletions of its pack; Strata's own check at
-  step 6 guards its preparation.
+  setup started outside the app only keeps its pack from being downloaded or deleted here.
 - Signal only the process groups the app spawned (the server's and setup's). A Strata server or setup it did
   not start is shown as such and never signalled; a stop that fails keeps ownership and blocks a restart.
 - The server listens on `127.0.0.1` only.
