@@ -48,7 +48,7 @@ open .build/DerivedData/Build/Products/Debug/StrataMenubar.app
 - `StrataMenubar/Views/`: `MenuContent` (the menu), `SettingsView` (draft + Apply, the Models section),
   `PackStatus+Display` (a pack row's state and why Download cannot run), `SettingsSummary` (the saved values as the
   menu lists them), `WindowCloseGuard`.
-- `StrataMenubar/Assets.xcassets`: the menu bar S as two template SVGs (`StripeS`, `StripeSOutline`);
+- `StrataMenubar/Assets.xcassets`: the menu bar icon (Font Awesome `layer-group`) as two template SVGs, full and half opacity (`LayerGroup`, `LayerGroupDimmed`);
   `ServerState+Display` picks one by state.
 - `StrataMenubarTests/`: Swift Testing suites; `Support/Fakes.swift` (fake launcher, process, probe,
   planner, preparer) and `Support/TestInstallation.swift` (a throwaway Strata layout and data directory on disk).

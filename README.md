@@ -30,8 +30,8 @@ xcodebuild -project StrataMenubar.xcodeproj -scheme StrataMenubar -configuration
 The app lands in `.build/DerivedData/Build/Products/Debug/StrataMenubar.app`.
 No Apple developer account is needed; the binary is ad-hoc signed. Start it from
 Finder or with `open .build/DerivedData/Build/Products/Debug/StrataMenubar.app`.
-It shows an S in the menu bar and nothing in the Dock: filled while the server it started
-is running, outlined otherwise.
+It shows a stack of layers in the menu bar and nothing in the Dock: solid while the server it
+started is running, dimmed otherwise.
 
 Tests, project layout and the rules for changing the code are in
 [AGENTS.md](AGENTS.md).
@@ -241,5 +241,5 @@ yourself; the app does not touch their configuration.
 
 ## Credits
 
-The menu bar S is the `stripe-s` brand icon from Font Awesome Free
-(icons: [CC BY 4.0](https://fontawesome.com/license/free)), used as it is and as an outline.
+The menu bar icon is the `layer-group` solid icon from Font Awesome Free
+(icons: [CC BY 4.0](https://fontawesome.com/license/free)), used as it is and at half opacity.

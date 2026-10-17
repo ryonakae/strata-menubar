@@ -1,11 +1,11 @@
 import SwiftUI
 
 extension ServerState {
-    /// The S is filled only while this app's own server runs; health, idle unload and failures stay in the status line.
+    /// The icon is at full strength only while this app's own server runs; health, idle unload and failures stay in the status line.
     var menuBarIcon: ImageResource {
         switch self {
-        case .running: .stripeS
-        case .stopped, .starting, .stopping, .external, .failed: .stripeSOutline
+        case .running: .layerGroup
+        case .stopped, .starting, .stopping, .external, .failed: .layerGroupDimmed
         }
     }
 
