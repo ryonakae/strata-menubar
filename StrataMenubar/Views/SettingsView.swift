@@ -44,7 +44,7 @@ struct SettingsView: View {
     /// A port field that does not parse is unapplied work too: it must be revertable and asked about.
     private var isDirty: Bool { draft != saved || !portIsNumber }
     private var running: RunningInfo? { serverManager.state.runningInfo }
-    /// The saved directory is watched; a directory typed but not yet applied is read afresh instead, and nothing is
+    /// The saved directory is watched; a directory chosen but not yet applied is read afresh instead, and nothing is
     /// downloaded into or deleted from it until it is applied.
     private var usesLibrary: Bool { draft.strataDirectoryURL.path(percentEncoded: false) == library.root.path(percentEncoded: false) }
     private var listing: (installed: [InstalledModel], packs: [ModelLibrary.PackStatus]) {
@@ -313,7 +313,7 @@ struct SettingsView: View {
             if let running {
                 LabeledContent("Started with", value: SettingsSummary.describe(running.settings, modelName: running.model))
                 if isDirty {
-                    Text("Apply the changes above to save them; \"Apply and Restart Server\" also restarts with them.")
+                    Text("Apply the changes below to save them; \"Apply and Restart Server\" also restarts with them.")
                         .foregroundStyle(.secondary)
                 } else if running.settings.effective != saved.effective {
                     HStack {
