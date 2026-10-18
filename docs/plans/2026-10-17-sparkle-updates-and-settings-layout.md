@@ -28,6 +28,20 @@ Decisions: [docs/dig/2026-10-17-sparkle-updates.md](../dig/2026-10-17-sparkle-up
 - A bar pinned to the bottom of the settings window holds the validation messages and Revert / Apply and
   Restart Server / Apply. The footnote ("Applied settings are used at the next start…") and "Stop and
   Apply Saved Settings" stay where they are.
+- Added after the first run of the app (dig Q11–Q14):
+  - The window really resizes. The `Settings` window's NSWindow is not resizable by default, which the
+    first implementation missed.
+  - Validation messages appear inside the section of the setting they concern. The bottom bar shows only one
+    line, and only while there are errors (the count, and that fixing them enables Apply). Warnings never
+    appear in the bar. The engine's MTP note is not shown twice. This replaces "validation messages in the
+    bar" above, and the three buttons stay in the bar.
+  - The Strata directory is shown read-only, with "Choose…" opening a Finder folder panel. The chosen
+    path is a draft until Apply. There is no "Show in Finder".
+  - Section order: Running server → Strata installation → Models → Memory and context → Engine → Server →
+    the footnote → About.
+  - A titled "About" section holds the version with "Check for Updates…", "Made by Ryo Nakae" (no link), a
+    link to https://github.com/ryonakae/strata-menubar and "MIT License". There are no credits in the app.
+    The menu item stays.
 - The release is v0.2.0. It includes the unpushed app icon and version display commits (0d69748, 7af3703).
   Its notes tell v0.1.x users to update by hand once.
 - Out of scope: automatic checks and downloads, stopping processes without asking for an update, restarting
@@ -70,6 +84,12 @@ Decisions: [docs/dig/2026-10-17-sparkle-updates.md](../dig/2026-10-17-sparkle-up
   `--download-url-prefix https://github.com/ryonakae/strata-menubar/releases/download/v${VERSION}/` and
   `--full-release-notes-url` set to the release page, and `--link` set to the repository. Because the directory starts empty, the appcast lists only
   this version, which is enough for a feed that always points at the latest release.
+- **Issue placement:** `SettingsIssue` gains the section it belongs to. `StrataSettings.validate` assigns it, the
+  view filters by section, and `StrataSettingsTests` checks the assignment. The view's own "port must be a
+  number" error belongs to Server. For MTP, the Engine section keeps its footnote only while the verify
+  window is "As set up". When a window is set, the validation warning says the same thing.
+- **Resizing:** a small `NSViewRepresentable` in `StrataMenubar/Views/` adds `.resizable` to its window's
+  `styleMask` once it is in a window. It lives next to `WindowCloseGuard`, which only guards closing.
 - **Model choices:** a pure `static` function in `ModelLibrary` builds the ordered picker entries from
   `installed`, `packs` and the selected tag. `SettingsView` only renders it, which keeps the ordering in the
   tested layer.
@@ -87,7 +107,7 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
   the app target in `StrataMenubar.xcodeproj/project.pbxproj`, and commit
   `project.xcworkspace/xcshareddata/swiftpm/Package.resolved`. `.gitignore` only ignores `xcuserdata/`.
   - Do this before the key task: `generate_keys` comes from the package artifacts.
-- [ ] EdDSA key (the user runs these; the private key is never shown to the agent):
+- [x] EdDSA key (the user runs these; the private key is never shown to the agent):
   1. Run `generate_keys` from `.build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/` to create the
      key and print the public key.
   2. Export it with `generate_keys -x <file>`.
@@ -123,7 +143,17 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
   `StrataMenubar/App/StrataMenubarApp.swift`, set the `Settings` scene's resizability.
   - Done: `actionBar` pinned with `.safeAreaInset(edge: .bottom)`; builds without warnings. The window checks in
     Final Validation are still to be done in the running app.
-- [ ] Docs:
+- [ ] Settings window follow-ups (dig Q11–Q14):
+  - Add the section to `SettingsIssue` in `StrataMenubar/Settings/StrataSettings.swift`, with tests in
+    `StrataMenubarTests/StrataSettingsTests.swift`.
+  - In `StrataMenubar/Views/SettingsView.swift`:
+    - show each section's issues inside that section, and put the error line in the bar
+    - add the read-only directory with "Choose…" (`NSOpenPanel`, folders only, starting at the current
+      directory)
+    - reorder the sections and make the titled About section
+    - attach the resizable-window helper (new file in `StrataMenubar/Views/`)
+  - Update README's Settings section to match.
+- [x] Docs:
   - `AGENTS.md`:
     - Change the "no dependencies" claim in the header and "there is no package manager" in Commands
       (SPM resolves Sparkle on the first build).
@@ -138,6 +168,8 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
     - Models: the picker order.
     - Limitations: checks are manual only.
     - Credits: Sparkle, MIT.
+  - Done in 91c990d and d8de3ba (README promises a relaunch only for Install and Relaunch, after a review
+    `decision required` resolved as option A).
 - [ ] Release v0.2.0, after Final Validation passes locally:
   1. Push main, then tag `v0.2.0`.
   2. Inspect the draft's assets and `appcast.xml`.
@@ -155,6 +187,13 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
 - [ ] Updater in a local build: open the Debug app → no permission prompt at launch. "Check for Updates…" is
   enabled in the menu and in settings. Before v0.2.0 is published it reports an error or "no update", without
   crashing.
+- [ ] Issue sections: `-only-testing:StrataMenubarTests/StrataSettingsTests` → each error and warning carries the
+  section of its setting.
+- [ ] Settings window follow-ups in the app:
+  - an invalid port shows its error in Server, and the bar shows one error line
+  - a 5-token verify window shows its warning in Engine and nothing in the bar
+  - "Choose…" sets the directory and the installation check reruns
+  - the sections are in the agreed order, and About has its four items with a working GitHub link
 - [ ] Settings window: the first opening has the same size as before. It resizes down to 560 × about 480 and up
   freely, the layout holds at the minimum, and the bottom bar stays visible while scrolling. At the minimum height the
   footnote and the Version row can still be scrolled fully above the bar. Its messages and
