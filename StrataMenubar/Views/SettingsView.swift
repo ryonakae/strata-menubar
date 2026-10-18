@@ -10,6 +10,7 @@ struct SettingsView: View {
     let installer: ModelInstaller
     let paths: AppPaths
     let draftState: SettingsDraftState
+    let updater: AppUpdater
 
     private let memory = MemoryBudget.current
 
@@ -24,7 +25,8 @@ struct SettingsView: View {
         library: ModelLibrary,
         installer: ModelInstaller,
         paths: AppPaths,
-        draftState: SettingsDraftState
+        draftState: SettingsDraftState,
+        updater: AppUpdater
     ) {
         self.settingsStore = settingsStore
         self.serverManager = serverManager
@@ -32,6 +34,7 @@ struct SettingsView: View {
         self.installer = installer
         self.paths = paths
         self.draftState = draftState
+        self.updater = updater
         let settings = settingsStore.settings
         _draft = State(initialValue: settings)
         _portText = State(initialValue: String(settings.port))
@@ -360,7 +363,13 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section {
-            LabeledContent("Version", value: Self.appVersion)
+            LabeledContent("Version") {
+                HStack {
+                    Text(Self.appVersion)
+                    Button("Check for Updates…") { updater.checkForUpdates() }
+                        .disabled(!updater.canCheckForUpdates)
+                }
+            }
         }
     }
 
@@ -368,7 +377,8 @@ struct SettingsView: View {
         let info = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "?"
         let build = info?["CFBundleVersion"] as? String ?? "?"
-        return "\(version) (\(build))"
+        // Releases use the version as the build number too, so the build is shown only for a build that differs.
+        return build == version ? version : "\(version) (\(build))"
     }()
 
     // MARK: - Pieces

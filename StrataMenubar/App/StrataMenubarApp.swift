@@ -12,7 +12,8 @@ struct StrataMenubarApp: App {
                 settingsStore: container.settingsStore,
                 library: container.modelLibrary,
                 installer: container.modelInstaller,
-                paths: container.paths
+                paths: container.paths,
+                updater: container.updater
             )
         } label: {
             Image(container.serverManager.state.menuBarIcon)
@@ -26,7 +27,8 @@ struct StrataMenubarApp: App {
                 library: container.modelLibrary,
                 installer: container.modelInstaller,
                 paths: container.paths,
-                draftState: container.settingsDraft
+                draftState: container.settingsDraft,
+                updater: container.updater
             )
         }
         .windowResizability(.contentMinSize)

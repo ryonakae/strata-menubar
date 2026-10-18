@@ -68,7 +68,7 @@ Decisions: [docs/dig/2026-10-17-sparkle-updates.md](../dig/2026-10-17-sparkle-up
   `CFBundleVersion`, the short version and `LSMinimumSystemVersion` from the bundle. It runs on a directory
   that holds only the stapled DMG, with the key piped in through `--ed-key-file -`,
   `--download-url-prefix https://github.com/ryonakae/strata-menubar/releases/download/v${VERSION}/` and
-  `--full-release-notes-url` set to the release page. Because the directory starts empty, the appcast lists only
+  `--full-release-notes-url` set to the release page, and `--link` set to the repository. Because the directory starts empty, the appcast lists only
   this version, which is enough for a feed that always points at the latest release.
 - **Model choices:** a pure `static` function in `ModelLibrary` builds the ordered picker entries from
   `installed`, `packs` and the selected tag. `SettingsView` only renders it, which keeps the ordering in the
@@ -96,12 +96,14 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
   5. Delete the file.
 
   The agent records the public key, which `generate_keys -p` prints.
-- [ ] Updater wiring: `Config/StrataMenubar-Info.plist` holds the three keys. Both app configurations in
+- [x] Updater wiring: `Config/StrataMenubar-Info.plist` holds the three keys. Both app configurations in
   `project.pbxproj` get `INFOPLIST_FILE`, and `CURRENT_PROJECT_VERSION` is set to `0.2.0` alongside
   `MARKETING_VERSION = 0.2.0` (app and test targets). Add `StrataMenubar/App/AppUpdater.swift` and hand it
   through `AppContainer` and `StrataMenubarApp` to `MenuContent` and `SettingsView`. The menu item goes just
   above "Settings…", and the settings window gets a button on the Version row in `aboutSection`, with the
   version display adjusted as decided above.
+  - Done: public key `HG/sTCjyXdsv7DBwcmkILl7Ezro0ND4LeckmBm2f9To=`; the built Info.plist carries the three keys and
+    `0.2.0` / `0.2.0`; build and the full test run (110 tests) pass without compiler warnings.
 - [x] Release pipeline: change `.github/workflows/release.yml`.
   - "Validate release version" also requires `CURRENT_PROJECT_VERSION` to equal the tag.
   - A new step between "Build signed app" and "Build DMG" removes the XPC services and re-signs the nested
@@ -154,7 +156,8 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
   enabled in the menu and in settings. Before v0.2.0 is published it reports an error or "no update", without
   crashing.
 - [ ] Settings window: the first opening has the same size as before. It resizes down to 560 × about 480 and up
-  freely, the layout holds at the minimum, and the bottom bar stays visible while scrolling. Its messages and
+  freely, the layout holds at the minimum, and the bottom bar stays visible while scrolling. At the minimum height the
+  footnote and the Version row can still be scrolled fully above the bar. Its messages and
   buttons enable and disable as before: dirty, errors, and running with differing settings.
 - [ ] Picker order in the app: with at least two installed packs whose tag order differs from the catalog order
   (for example IQ3_S and Q2_0), the picker and the rows list them in the same order.

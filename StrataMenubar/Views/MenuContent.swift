@@ -7,6 +7,7 @@ struct MenuContent: View {
     let library: ModelLibrary
     let installer: ModelInstaller
     let paths: AppPaths
+    let updater: AppUpdater
     @Environment(\.openSettings) private var openSettings
 
     private var state: ServerState { serverManager.state }
@@ -87,6 +88,8 @@ struct MenuContent: View {
             NSWorkspace.shared.open(paths.logs)
         }
         Divider()
+        Button("Check for Updates…") { updater.checkForUpdates() }
+            .disabled(!updater.canCheckForUpdates)
         Button("Settings…") { showSettings() }
             .keyboardShortcut(",")
         Divider()

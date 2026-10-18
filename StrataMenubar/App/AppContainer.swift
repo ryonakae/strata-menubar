@@ -11,6 +11,7 @@ final class AppContainer {
     let serverManager: ServerManager
     let modelLibrary: ModelLibrary
     let modelInstaller: ModelInstaller
+    let updater = AppUpdater()
 
     private init() {
         let settingsStore = SettingsStore()
