@@ -1,12 +1,13 @@
 # AGENTS.md
 
-macOS menu bar app (Swift 6, SwiftUI, macOS 15+, no dependencies) that starts, stops and configures a
+macOS menu bar app (Swift 6, SwiftUI, macOS 15+, Sparkle as the only dependency) that starts, stops and configures a
 locally installed Strata LLM server. `README.md` describes the behaviour users see; this file is for
 working on the code. `CLAUDE.md` is a symlink to this file.
 
 ## Commands
 
-Build and test with xcodebuild only; there is no package manager or script layer.
+Build and test with xcodebuild only; there is no script layer. Swift Package Manager fetches Sparkle, pinned in
+`Package.resolved`, on the first build.
 
 ```sh
 xcodebuild -project StrataMenubar.xcodeproj -scheme StrataMenubar -configuration Debug \
@@ -34,17 +35,22 @@ open .build/DerivedData/Build/Products/Debug/StrataMenubar.app
 
 ## Release
 
-Bump `MARKETING_VERSION` in `project.pbxproj`, commit, then push a `vX.Y.Z` tag.
-`.github/workflows/release.yml` tests, builds with Developer ID signing and the hardened runtime (passed on
-the command line, so the project itself stays ad-hoc signed), notarizes and staples the DMG, and creates a
-draft release. Publishing the draft runs `update-homebrew-cask.yml`, which points
-`ryonakae/homebrew-tap`'s `Casks/strata-menubar.rb` at the new DMG. Signing secrets live in the `release`
-environment, which only `v*` tags can use.
+Set both `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.pbxproj` to the new version (Sparkle
+compares only `CFBundleVersion`, so the build number must rise with every release), commit, then push a
+`vX.Y.Z` tag. `.github/workflows/release.yml` tests, builds with Developer ID signing and the hardened runtime
+(passed on the command line, so the project itself stays ad-hoc signed), removes Sparkle's XPC services and
+re-signs its helpers, notarizes and staples the DMG, generates `appcast.xml` from it with the EdDSA key, and
+creates a draft release with the DMG, its checksum and the appcast. Publishing the draft is what releases the
+update: the app's feed is `releases/latest/download/appcast.xml`, and `update-homebrew-cask.yml` points
+`ryonakae/homebrew-tap`'s `Casks/strata-menubar.rb` at the new DMG. Signing secrets, the Sparkle key
+(`SPARKLE_ED_PRIVATE_KEY`) included, live in the `release` environment, which only `v*` tags can use.
+`Config/StrataMenubar-Info.plist` holds the feed URL and the public key.
 
 ## Layout
 
 - `StrataMenubar/App/`: `StrataMenubarApp` (MenuBarExtra + Settings scene), `AppDelegate` (quit
-  confirmation), `AppContainer` (wires the real dependencies once).
+  confirmation, which an update's relaunch goes through too), `AppContainer` (wires the real dependencies once),
+  `AppUpdater` (Sparkle, manual checks only).
 - `StrataMenubar/Settings/`: `StrataSettings` (values, validation, `MemoryBudget`, the step lists),
   `EngineDefaults` (what the engine picks when a value is unset, computed for display), `SettingsStore` (UserDefaults).
 - `StrataMenubar/Strata/`: everything that touches Strata. `StrataInstallation` (installed
@@ -63,6 +69,8 @@ environment, which only `v*` tags can use.
   planner, preparer) and `Support/TestInstallation.swift` (a throwaway Strata layout and data directory on disk).
 - `docs/plans/archived/`: implementation plans with the decisions and validation records.
   `docs/dig/`: the question-and-answer logs behind them. Read these before changing a decision.
+- `Config/StrataMenubar-Info.plist`: Info.plist keys build settings cannot carry (Sparkle's), merged into the
+  generated Info.plist. It sits outside `StrataMenubar/` so it is not copied as a resource.
 - The Xcode project uses synchronized folders: a new file under `StrataMenubar/` or
   `StrataMenubarTests/` is picked up without editing `project.pbxproj`.
 
@@ -87,6 +95,7 @@ These are the contract with the user; a change needs a new plan, not a quiet edi
 
 ## Conventions
 
+- Sparkle is the only dependency; adding another needs a plan.
 - Swift 6 language mode with strict concurrency: UI and `ServerManager` are `@MainActor`; anything
   crossing threads is `Sendable` or `@unchecked Sendable` with a lock.
 - Keep the design testable through the existing seams: `ProcessLaunching`, `HealthProbing`,

@@ -34,7 +34,10 @@ Or download `StrataMenubar_<version>_arm64.dmg` from the
 [Releases](https://github.com/ryonakae/strata-menubar/releases) page and drag the
 app to Applications.
 
-Release builds are signed with a Developer ID and notarized.
+Release builds are signed with a Developer ID and notarized. Later versions
+arrive through **Check for Updates…** in the menu or the settings window, or
+with `brew upgrade --cask strata-menubar`. Versions 0.1.x cannot update
+themselves; install 0.2.0 or later by hand once.
 
 ## Build
 
@@ -101,6 +104,12 @@ Actions:
   is the Python server's stdout and stderr; `engine.log` is what the engine
   writes; `setup.log` collects every setup run the app starts. A file over 10 MB
   is moved to `.1` at the next start or setup run.
+- **Check for Updates…** asks whether a newer version is out and, if one is,
+  shows its release notes link and offers to install it. Installing quits the
+  app the same way **Quit** does, so a server or download the app started is
+  stopped only after you confirm; cancel and the update is installed the next
+  time the app quits. The app relaunches afterwards but does not start a
+  server. It never checks on its own.
 - **Quit** asks for confirmation while a server the app started is running or
   starting, or while a download runs; one dialog names both. It stops them first
   (a stopped download resumes with the next Download) and keeps the app open if
@@ -113,7 +122,10 @@ the sliders, the model picker or the text fields, then press **Apply** to save
 (it is disabled while a value is invalid) or **Revert** to go back to the
 saved values. Closing the window or quitting the app with unapplied changes
 asks whether to discard them (Keep Editing is the default answer). The menu
-bar only lists the saved values.
+bar only lists the saved values. The window can be resized; the validation
+messages, **Revert**, **Apply** and **Apply and Restart Server** stay at its
+bottom while the settings scroll. The app's version and **Check for Updates…**
+are at the end of the settings.
 
 | Setting | Default | Notes |
 | --- | --- | --- |
@@ -169,7 +181,8 @@ model files.
 
 The window's Models section holds the model picker and a row for each pack
 Strata's Mac documentation describes (Q2_0, IQ3_XXS, IQ3_S, UD-Q4_K_XL,
-UD-Q5_K_XL, UD-Q6_K_XL). A row shows the pack's state (Installed, Downloaded,
+UD-Q5_K_XL, UD-Q6_K_XL). The picker lists installed and downloaded packs in the
+same order as the rows, then models set up from other configs by name. A row shows the pack's state (Installed, Downloaded,
 Partially downloaded, Not downloaded, or what setup is doing with it), its
 download size, the file the GPU maps, the memory it needs, the recommended RAM
 and the disk a finished setup takes on this Mac. Below the rows are the free
@@ -248,8 +261,8 @@ yourself; the app does not touch their configuration.
   followed or taken over.
 - Delete moves files to the Trash; the space comes back only once the Trash is
   emptied.
-- No login item, launchd service, LAN access, authentication, signing or
-  notarisation.
+- No login item, launchd service, LAN access or authentication.
+- Updates are checked only when you choose **Check for Updates…**.
 - A server left over from an app crash is shown as "External Strata" and is not
   adopted; stop it yourself before starting a new one. A setup left over from a
   crash counts as one started outside the app and blocks Download and Delete of
@@ -258,4 +271,7 @@ yourself; the app does not touch their configuration.
 ## Credits
 
 The menu bar icon is the `layer-group` solid icon from Font Awesome Free
-(icons: [CC BY 4.0](https://fontawesome.com/license/free)), used as it is and at half opacity.
+(icons: [CC BY 4.0](https://fontawesome.com/license/free)), used as it is and at half opacity;
+the app icon puts it on a gradient.
+
+Updates use [Sparkle](https://sparkle-project.org) ([MIT](https://github.com/sparkle-project/Sparkle/blob/2.x/LICENSE)).
