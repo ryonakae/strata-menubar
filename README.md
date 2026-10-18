@@ -105,11 +105,11 @@ Actions:
   writes; `setup.log` collects every setup run the app starts. A file over 10 MB
   is moved to `.1` at the next start or setup run.
 - **Check for Updates…** asks whether a newer version is out and, if one is,
-  shows its release notes link and offers to install it. Installing quits the
-  app the same way **Quit** does, so a server or download the app started is
-  stopped only after you confirm; cancel and the update is installed the next
-  time the app quits. The app relaunches afterwards but does not start a
-  server. It never checks on its own.
+  offers to install it. **Install and Relaunch** quits the app the same way
+  **Quit** does, so a server or download the app started is stopped only after
+  you confirm; the new version then starts without starting a server. Cancel
+  that confirmation and the update is installed the next time the app quits.
+  The app never checks on its own.
 - **Quit** asks for confirmation while a server the app started is running or
   starting, or while a download runs; one dialog names both. It stops them first
   (a stopped download resumes with the next Download) and keeps the app open if

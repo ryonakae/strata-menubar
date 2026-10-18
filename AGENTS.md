@@ -49,7 +49,7 @@ update: the app's feed is `releases/latest/download/appcast.xml`, and `update-ho
 ## Layout
 
 - `StrataMenubar/App/`: `StrataMenubarApp` (MenuBarExtra + Settings scene), `AppDelegate` (quit
-  confirmation, which an update's relaunch goes through too), `AppContainer` (wires the real dependencies once),
+  confirmation, which an update's quit goes through too), `AppContainer` (wires the real dependencies once),
   `AppUpdater` (Sparkle, manual checks only).
 - `StrataMenubar/Settings/`: `StrataSettings` (values, validation, `MemoryBudget`, the step lists),
   `EngineDefaults` (what the engine picks when a value is unset, computed for display), `SettingsStore` (UserDefaults).
