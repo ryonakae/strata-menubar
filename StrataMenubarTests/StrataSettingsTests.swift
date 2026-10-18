@@ -13,6 +13,30 @@ struct StrataSettingsTests {
         settings.validate(memory: memory).filter { $0.severity == .warning }
     }
 
+    /// The settings window shows each message in the section of the setting it is about.
+    @Test func issuesNameTheSectionOfTheirSetting() {
+        var errors = StrataSettings.default
+        errors.strataDirectory = " "
+        errors.model = ""
+        errors.maxContext = 0
+        errors.port = 80
+        errors.idleUnloadMinutes = -1
+        errors.specWindow = 99
+        errors.promptChunk = 100
+        #expect(errors.validate(memory: memory).map(\.section) == [.installation, .models, .memory, .server, .server, .engine, .memory])
+
+        var fixedCache = StrataSettings.default
+        fixedCache.autoExpertCache = false
+        fixedCache.expertCacheGB = 1
+        fixedCache.maxContext = 65536
+        fixedCache.specWindow = 5
+        #expect(fixedCache.validate(memory: memory).map(\.section) == [.memory, .memory, .engine])
+
+        var keepFree = StrataSettings.default
+        keepFree.keepFreeGB = 4
+        #expect(keepFree.validate(memory: memory).map(\.section) == [.memory])
+    }
+
     @Test func defaultsMatchThePlanAndPassValidation() {
         let settings = StrataSettings.default
         #expect(settings.strataDirectory == "~/Strata")

@@ -52,19 +52,19 @@ struct SettingsView: View {
     }
     private var portIsNumber: Bool { Int(portText.trimmingCharacters(in: .whitespaces)) != nil }
     private var issues: [SettingsIssue] {
-        draft.validate(memory: memory, base: baseFacts) + (portIsNumber ? [] : [.error("The port must be a number.")])
+        draft.validate(memory: memory, base: baseFacts) + (portIsNumber ? [] : [.error("The port must be a number.", in: .server)])
     }
     private var hasErrors: Bool { issues.contains { $0.severity == .error } }
     private var launchProblems: [String] { installationProblems ?? [] }
 
     var body: some View {
         Form {
+            runningSection
             installationSection
             modelsSection
             memorySection
-            serverSection
             engineSection
-            runningSection
+            serverSection
             applySection
             aboutSection
         }
@@ -72,6 +72,7 @@ struct SettingsView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { actionBar }
         .frame(minWidth: 560, idealWidth: 560, minHeight: 480)
         .background(WindowCloseGuard(isDirty: isDirty, discard: revert))
+        .background(ResizableWindow())
         .onAppear {
             checkInstallation()
             draftState.isDirty = isDirty
@@ -107,12 +108,21 @@ struct SettingsView: View {
 
     private var installationSection: some View {
         Section("Strata installation") {
-            TextField("Strata directory", text: $draft.strataDirectory)
+            LabeledContent("Strata directory") {
+                HStack {
+                    Text(draft.strataDirectory)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .textSelection(.enabled)
+                    Button("Choose…") { chooseStrataDirectory() }
+                }
+            }
             HStack(alignment: .top) {
                 installationStatus
                 Spacer()
                 Button("Check") { checkInstallation() }
             }
+            sectionIssues(.installation)
             Text("The directory must contain Strata's `.venv`, `serve/server.py` and `setup.py`. Models are downloaded and prepared "
                 + "by Strata's own setup from the Models section; this app does not install or update Strata itself.")
                 .font(.footnote)
@@ -141,6 +151,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            sectionIssues(.models)
             if !usesLibrary {
                 Text("Apply the Strata directory to download or delete models in it.")
                     .font(.footnote)
@@ -244,6 +255,7 @@ struct SettingsView: View {
                     Text(String(value)).tag(Int?.some(value))
                 }
             }
+            sectionIssues(.memory)
             Text("Automatic: the engine sizes the expert arena from the memory macOS can give and keeps 7 GB or 15% of the RAM "
                 + "for macOS, whichever is more (Strata's docs/MAC.md). Fixed: the cache (STRATA_METAL_ARENA_GB) is only the arena "
                 + "for the most-used experts, not a limit on Strata's total memory: on a 32 GiB Mac a 5 GB cache gave the engine a "
@@ -264,6 +276,7 @@ struct SettingsView: View {
                 }
             }
             Toggle("Fit max_tokens to the remaining context", isOn: $draft.fitMaxTokens)
+            sectionIssues(.server)
             Text("Idle unload ends the engine process after that long without requests and starts it again for the next one, "
                 + "which then takes a few seconds; the menu shows the model as unloaded meanwhile. Fit max_tokens clamps a "
                 + "request's max_tokens to what fits in the context instead of answering 400; a prompt that is itself longer "
@@ -281,7 +294,9 @@ struct SettingsView: View {
                     Text(String(value)).tag(Int?.some(value))
                 }
             }
-            if let baseFacts, !baseFacts.hasMTP {
+            sectionIssues(.engine)
+            // A chosen window gets the same note as a validation warning; "As set up" has none, so it is shown here.
+            if let baseFacts, !baseFacts.hasMTP, draft.specWindow == nil {
                 Text("This model's config has no MTP draft layer (--mtp); --spec has no effect until setup adds one.")
                     .font(.footnote)
                     .foregroundStyle(.orange)
@@ -331,11 +346,12 @@ struct SettingsView: View {
         }
     }
 
-    /// Pinned below the scrolling form so that Apply, and why it cannot run, stay in view.
+    /// Pinned below the scrolling form so that Apply stays in view; the messages themselves sit in their sections.
     private var actionBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(issues) { issue in
-                issueLabel(issue.message, isError: issue.severity == .error)
+        let errorCount = issues.filter { $0.severity == .error }.count
+        return VStack(alignment: .leading, spacing: 8) {
+            if errorCount > 0 {
+                issueLabel(errorCount == 1 ? "Fix the error above to apply." : "Fix the \(errorCount) errors above to apply.", isError: true)
             }
             HStack {
                 Button("Revert") { revert() }
@@ -362,7 +378,7 @@ struct SettingsView: View {
     }
 
     private var aboutSection: some View {
-        Section {
+        Section("About") {
             LabeledContent("Version") {
                 HStack {
                     Text(Self.appVersion)
@@ -370,8 +386,15 @@ struct SettingsView: View {
                         .disabled(!updater.canCheckForUpdates)
                 }
             }
+            LabeledContent("Made by", value: "Ryo Nakae")
+            LabeledContent("Source") {
+                Link("github.com/ryonakae/strata-menubar", destination: Self.repository)
+            }
+            LabeledContent("License", value: "MIT License")
         }
     }
+
+    private static let repository = URL(string: "https://github.com/ryonakae/strata-menubar")!
 
     private static let appVersion: String = {
         let info = Bundle.main.infoDictionary
@@ -399,6 +422,12 @@ struct SettingsView: View {
         } else {
             Text("Not checked yet")
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private func sectionIssues(_ section: SettingsIssue.Section) -> some View {
+        ForEach(issues.filter { $0.section == section }) { issue in
+            issueLabel(issue.message, isError: issue.severity == .error)
         }
     }
 
@@ -446,6 +475,25 @@ struct SettingsView: View {
         settingsStore.save(draft)
         library.update(root: draft.strataDirectoryURL)
         checkInstallation()
+    }
+
+    /// The directory is only ever picked, never typed; like every other field it stays a draft until Apply.
+    private func chooseStrataDirectory() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = draft.strataDirectoryURL
+        panel.prompt = "Choose"
+        panel.message = "Choose the Strata checkout."
+        NSApp.activate()
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        // A directory URL's path ends in "/", which would no longer match the watched library root.
+        var path = url.path(percentEncoded: false)
+        if path.count > 1, path.hasSuffix("/") {
+            path.removeLast()
+        }
+        draft.strataDirectory = (path as NSString).abbreviatingWithTildeInPath
     }
 
     private func revert() {

@@ -117,15 +117,20 @@ Actions:
 
 ## Settings
 
-Open **Settings…** from the menu (or ⌘,). The window edits a draft: change
-the sliders, the model picker or the text fields, then press **Apply** to save
-(it is disabled while a value is invalid) or **Revert** to go back to the
-saved values. Closing the window or quitting the app with unapplied changes
-asks whether to discard them (Keep Editing is the default answer). The menu
-bar only lists the saved values. The window can be resized; the validation
-messages, **Revert**, **Apply** and **Apply and Restart Server** stay at its
-bottom while the settings scroll. The app's version and **Check for Updates…**
-are at the end of the settings.
+Open **Settings…** from the menu (or ⌘,). The window edits a draft: choose the
+Strata directory with **Choose…**, change the sliders, the model picker or the
+port, then press **Apply** to save (it is disabled while a value is invalid) or
+**Revert** to go back to the saved values. Closing the window or quitting the
+app with unapplied changes asks whether to discard them (Keep Editing is the
+default answer). The menu bar only lists the saved values.
+
+The window can be resized. It starts with the running server, then the
+installation, the models, memory and context, the engine and the server.
+Errors and warnings appear in the section of the setting they are about;
+**Revert**, **Apply** and **Apply and Restart Server** stay at the bottom while
+the settings scroll, with a line there while an error keeps Apply disabled.
+The About section at the end shows the version, **Check for Updates…**, the
+author, the GitHub repository and the license.
 
 | Setting | Default | Notes |
 | --- | --- | --- |

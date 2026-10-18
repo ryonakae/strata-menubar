@@ -143,7 +143,7 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
   `StrataMenubar/App/StrataMenubarApp.swift`, set the `Settings` scene's resizability.
   - Done: `actionBar` pinned with `.safeAreaInset(edge: .bottom)`; builds without warnings. The window checks in
     Final Validation are still to be done in the running app.
-- [ ] Settings window follow-ups (dig Q11–Q14):
+- [x] Settings window follow-ups (dig Q11–Q14):
   - Add the section to `SettingsIssue` in `StrataMenubar/Settings/StrataSettings.swift`, with tests in
     `StrataMenubarTests/StrataSettingsTests.swift`.
   - In `StrataMenubar/Views/SettingsView.swift`:
@@ -153,6 +153,8 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
     - reorder the sections and make the titled About section
     - attach the resizable-window helper (new file in `StrataMenubar/Views/`)
   - Update README's Settings section to match.
+  - Done: `SettingsIssue.Section`; the new test failed first (no member `section`); the full suite (111 tests)
+    passes without compiler warnings. The checks in the running app are still to be done.
 - [x] Docs:
   - `AGENTS.md`:
     - Change the "no dependencies" claim in the header and "there is no package manager" in Commands

@@ -62,7 +62,7 @@ update: the app's feed is `releases/latest/download/appcast.xml`, and `update-ho
   (posix_spawn in a new process group), `HealthProbe`, `ServerManager` (the state machine), `StrataModelCatalog`.
 - `StrataMenubar/Views/`: `MenuContent` (the menu), `SettingsView` (draft + Apply, the Models section),
   `PackStatus+Display` (a pack row's state and why Download cannot run), `SettingsSummary` (the saved values as the
-  menu lists them), `WindowCloseGuard`.
+  menu lists them), `WindowCloseGuard`, `ResizableWindow` (the Settings window has no resizable style of its own).
 - `StrataMenubar/Assets.xcassets`: the menu bar icon (Font Awesome `layer-group`) as two template SVGs, full and half opacity (`LayerGroup`, `LayerGroupDimmed`);
   `ServerState+Display` picks one by state.
 - `StrataMenubarTests/`: Swift Testing suites; `Support/Fakes.swift` (fake launcher, process, probe,

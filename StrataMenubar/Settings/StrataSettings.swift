@@ -59,10 +59,10 @@ struct StrataSettings: Equatable, Codable, Sendable {
     func validate(memory: MemoryBudget = .current, base: BaseConfigFacts? = nil) -> [SettingsIssue] {
         var issues: [SettingsIssue] = []
         if strataDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            issues.append(.error("The Strata directory is empty."))
+            issues.append(.error("The Strata directory is empty.", in: .installation))
         }
         if model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            issues.append(.error("No model is selected."))
+            issues.append(.error("No model is selected.", in: .models))
         }
         if autoExpertCache {
             issues += validateKeepFree(memory: memory)
@@ -70,20 +70,21 @@ struct StrataSettings: Equatable, Codable, Sendable {
             issues += validateFixedCache(memory: memory)
         }
         if maxContext <= 0 {
-            issues.append(.error("The context must be a positive number of tokens."))
+            issues.append(.error("The context must be a positive number of tokens.", in: .memory))
         } else if maxContext > 32768 {
             issues.append(.warning(
                 "Contexts over 32768 are untested by Strata: it measured the Mac engine to 32K and its setup offers up to 128K. "
                     + "The KV cache grows with the context: on a 32 GiB Mac the engine allocated 7.0 GB before the expert arena "
                     + "at 262144 against 3.7 GB at 32768 (about 14.5 KB per token), memory an automatic arena gives up. "
-                    + "The value is kept as you set it."
+                    + "The value is kept as you set it.",
+                in: .memory
             ))
         }
         if !(1024...65535).contains(port) {
-            issues.append(.error("The port must be between 1024 and 65535."))
+            issues.append(.error("The port must be between 1024 and 65535.", in: .server))
         }
         if idleUnloadMinutes < 0 {
-            issues.append(.error("The idle unload must be never (0) or a number of minutes."))
+            issues.append(.error("The idle unload must be never (0) or a number of minutes.", in: .server))
         }
         if let specWindow {
             issues += validateSpecWindow(specWindow, base: base)
@@ -96,18 +97,20 @@ struct StrataSettings: Equatable, Codable, Sendable {
 
     private func validateFixedCache(memory: MemoryBudget) -> [SettingsIssue] {
         if !expertCacheGB.isFinite || expertCacheGB <= 0 {
-            return [.error("The expert cache must be a positive number of gigabytes.")]
+            return [.error("The expert cache must be a positive number of gigabytes.", in: .memory)]
         }
         if expertCacheGB < 2 {
             return [.warning(
                 "Caches under 2 GB are likely to fail: the engine needs about 1.36 GB of the arena for a prompt's buffers, "
-                    + "and at about 0.8 GB it stopped with \"no arena region for the prompt buffers\"."
+                    + "and at about 0.8 GB it stopped with \"no arena region for the prompt buffers\".",
+                in: .memory
             )]
         }
         if expertCacheGB > Double(memory.cacheWarningAboveGB) {
             return [.warning(
                 "Caches over half of this Mac's \(memory.physicalMemoryGiB) GiB leave little for the engine's other memory "
-                    + "and macOS; expect swapping. The value is kept as you set it."
+                    + "and macOS; expect swapping. The value is kept as you set it.",
+                in: .memory
             )]
         }
         return []
@@ -116,12 +119,13 @@ struct StrataSettings: Equatable, Codable, Sendable {
     private func validateKeepFree(memory: MemoryBudget) -> [SettingsIssue] {
         guard let keepFreeGB else { return [] }
         if !memory.cacheRange.contains(keepFreeGB) {
-            return [.error("The memory kept for macOS must be between 1 and \(memory.physicalMemoryGiB) GB.")]
+            return [.error("The memory kept for macOS must be between 1 and \(memory.physicalMemoryGiB) GB.", in: .memory)]
         }
         if Double(keepFreeGB) < EngineDefaults.keepFreeFloorGB {
             return [.warning(
                 "Keeping less than 7 GB for macOS has swapped: a 34-minute server run that kept 5 GB swapped out 93 MB while "
-                    + "the arena filled, so Strata's own floor is 7 GB. The value is kept as you set it."
+                    + "the arena filled, so Strata's own floor is 7 GB. The value is kept as you set it.",
+                in: .memory
             )]
         }
         return []
@@ -129,26 +133,27 @@ struct StrataSettings: Equatable, Codable, Sendable {
 
     private func validateSpecWindow(_ window: Int, base: BaseConfigFacts?) -> [SettingsIssue] {
         guard SpecWindow.range.contains(window) else {
-            return [.error("The verify window must be between \(SpecWindow.range.lowerBound) and \(SpecWindow.range.upperBound) tokens.")]
+            return [.error("The verify window must be between \(SpecWindow.range.lowerBound) and \(SpecWindow.range.upperBound) tokens.", in: .engine)]
         }
         var issues: [SettingsIssue] = []
         if window >= 5 {
-            issues.append(.warning("Windows of 5 or more measured slower than 2 to 4 on an M5 Max (Strata's docs). The value is kept as you set it."))
+            issues.append(.warning("Windows of 5 or more measured slower than 2 to 4 on an M5 Max (Strata's docs). The value is kept as you set it.", in: .engine))
         }
         if let base, !base.hasMTP {
-            issues.append(.warning("This model's config has no MTP draft layer (--mtp), so --spec has no effect until setup adds one."))
+            issues.append(.warning("This model's config has no MTP draft layer (--mtp), so --spec has no effect until setup adds one.", in: .engine))
         }
         return issues
     }
 
     private func validatePromptChunk(_ chunk: Int, memory: MemoryBudget, base: BaseConfigFacts?) -> [SettingsIssue] {
         guard chunk >= 64, chunk <= 8192, chunk % 64 == 0 else {
-            return [.error("The prompt chunk must be a multiple of 64 between 64 and 8192 tokens.")]
+            return [.error("The prompt chunk must be a multiple of 64 between 64 and 8192 tokens.", in: .memory)]
         }
         if let base, base.streaming == true, let engine = EngineDefaults.promptChunk(memory: memory, streaming: true), chunk > engine {
             return [.warning(
                 "Chunks above this Mac's default of \(engine) take their buffers from the expert arena while a prompt runs "
-                    + "(4.3 GB at 4096, measured by Strata). The value is kept as you set it."
+                    + "(4.3 GB at 4096, measured by Strata). The value is kept as you set it.",
+                in: .memory
             )]
         }
         return []
@@ -209,16 +214,26 @@ struct SettingsIssue: Equatable, Sendable, Identifiable {
         case warning
     }
 
+    /// The settings window's section that holds the setting, where the message is shown.
+    enum Section: Sendable {
+        case installation
+        case models
+        case memory
+        case engine
+        case server
+    }
+
     var severity: Severity
     var message: String
+    var section: Section
 
     var id: String { message }
 
-    static func error(_ message: String) -> SettingsIssue {
-        SettingsIssue(severity: .error, message: message)
+    static func error(_ message: String, in section: Section) -> SettingsIssue {
+        SettingsIssue(severity: .error, message: message, section: section)
     }
 
-    static func warning(_ message: String) -> SettingsIssue {
-        SettingsIssue(severity: .warning, message: message)
+    static func warning(_ message: String, in section: Section) -> SettingsIssue {
+        SettingsIssue(severity: .warning, message: message, section: section)
     }
 }
