@@ -156,7 +156,7 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
   - Done: `SettingsIssue.Section`; the new test failed first (no member `section`); the full suite (111 tests)
     passes without compiler warnings. In the running app SwiftUI removed the added `.resizable` style again, so
     the helper now restores it whenever it is removed; the window gets a default size of 560 × 720, and About drops
-    the license row (it stays in README's Credits). The checks in the running app passed.
+    the license row. The checks in the running app passed.
 - [x] Docs:
   - `AGENTS.md`:
     - Change the "no dependencies" claim in the header and "there is no package manager" in Commands
