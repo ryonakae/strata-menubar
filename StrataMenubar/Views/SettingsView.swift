@@ -390,7 +390,6 @@ struct SettingsView: View {
             LabeledContent("Source") {
                 Link("github.com/ryonakae/strata-menubar", destination: Self.repository)
             }
-            LabeledContent("License", value: "MIT License")
         }
     }
 

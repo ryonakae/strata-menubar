@@ -130,7 +130,7 @@ Errors and warnings appear in the section of the setting they are about;
 **Revert**, **Apply** and **Apply and Restart Server** stay at the bottom while
 the settings scroll, with a line there while an error keeps Apply disabled.
 The About section at the end shows the version, **Check for Updates…**, the
-author, the GitHub repository and the license.
+author and the GitHub repository.
 
 | Setting | Default | Notes |
 | --- | --- | --- |

@@ -31,6 +31,7 @@ struct StrataMenubarApp: App {
                 updater: container.updater
             )
         }
+        .defaultSize(width: 560, height: 720)
         .windowResizability(.contentMinSize)
     }
 }
