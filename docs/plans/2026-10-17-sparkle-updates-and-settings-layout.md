@@ -154,7 +154,9 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
     - attach the resizable-window helper (new file in `StrataMenubar/Views/`)
   - Update README's Settings section to match.
   - Done: `SettingsIssue.Section`; the new test failed first (no member `section`); the full suite (111 tests)
-    passes without compiler warnings. The checks in the running app are still to be done.
+    passes without compiler warnings. In the running app SwiftUI removed the added `.resizable` style again, so
+    the helper now restores it whenever it is removed; the window gets a default size of 560 × 720, and About drops
+    the license row (it stays in README's Credits). The checks in the running app passed.
 - [x] Docs:
   - `AGENTS.md`:
     - Change the "no dependencies" claim in the header and "there is no package manager" in Commands
@@ -182,25 +184,25 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
 
 ## Final Validation
 
-- [ ] Build and tests: the AGENTS.md `build` and `test` commands, outside the sandbox (herdr pane) → both succeed
+- [x] Build and tests: the AGENTS.md `build` and `test` commands, outside the sandbox (herdr pane) → both succeed
   with no compiler warnings, and no Sparkle alert appears during the test run.
-- [ ] Model order: `-only-testing:StrataMenubarTests/ModelLibraryTests` → the new cases pass. This also runs in
+- [x] Model order: `-only-testing:StrataMenubarTests/ModelLibraryTests` → the new cases pass. This also runs in
   the full test run above.
-- [ ] Updater in a local build: open the Debug app → no permission prompt at launch. "Check for Updates…" is
+- [x] Updater in a local build: open the Debug app → no permission prompt at launch. "Check for Updates…" is
   enabled in the menu and in settings. Before v0.2.0 is published it reports an error or "no update", without
   crashing.
-- [ ] Issue sections: `-only-testing:StrataMenubarTests/StrataSettingsTests` → each error and warning carries the
+- [x] Issue sections: `-only-testing:StrataMenubarTests/StrataSettingsTests` → each error and warning carries the
   section of its setting.
-- [ ] Settings window follow-ups in the app:
+- [x] Settings window follow-ups in the app:
   - an invalid port shows its error in Server, and the bar shows one error line
   - a 5-token verify window shows its warning in Engine and nothing in the bar
   - "Choose…" sets the directory and the installation check reruns
   - the sections are in the agreed order, and About has its four items with a working GitHub link
-- [ ] Settings window: the first opening has the same size as before. It resizes down to 560 × about 480 and up
+- [x] Settings window: the first opening has the same size as before. It resizes down to 560 × about 480 and up
   freely, the layout holds at the minimum, and the bottom bar stays visible while scrolling. At the minimum height the
   footnote and the Version row can still be scrolled fully above the bar. Its messages and
   buttons enable and disable as before: dirty, errors, and running with differing settings.
-- [ ] Picker order in the app: with at least two installed packs whose tag order differs from the catalog order
+- [x] Picker order in the app: with at least two installed packs whose tag order differs from the catalog order
   (for example IQ3_S and Q2_0), the picker and the rows list them in the same order.
 - [ ] CI release: the run for `v0.2.0` succeeds. Notarization says `Accepted` with the Sparkle helpers
   inside. The draft has the DMG, `.sha256` and `appcast.xml`. In `appcast.xml`:
@@ -223,7 +225,7 @@ Review base: `a18f285` (the commits after it, including 0d69748 and 7af3703, bel
     empty afterwards, and the server is not running in the relaunched app.
 
   Do this in a scratch copy of the app outside `/Applications`, so the installed copy is not touched.
-- [ ] Repository hygiene: `git diff --check` is clean, and no `.build/`, keys or exported key files are tracked
+- [x] Repository hygiene: `git diff --check` is clean, and no `.build/`, keys or exported key files are tracked
   (`git status --short` and `git ls-files | grep -i -E 'key|\.p8|\.p12'` show nothing unexpected).
 
 > 各タスクは対応する検証が成功してから完了にする。実装中の軽微な差分と検証結果は該当箇所へ反映し、要件、対象外、公開契約の変更はユーザーへ確認する。最終確認では有効な検証結果を再利用し、計画と実際の変更が一致することを確認する。必要な検証と実装側の必須レビューが通ったら、計画を同名のまま `docs/plans/archived/` へ移す。
